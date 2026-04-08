@@ -1,0 +1,25 @@
+[
+  {
+    "token": "83115516594612587584557357657268293648087775719589518213335382338029264050626",
+    "positions": [
+      {
+        "proxyWallet": "0xb27bc932bf8110d8f78e55da7d5f0497a18b5b82",
+        "name": "0xB27BC932bf8110D8F78e55da7d5f0497A18B5b82-1772569391020",
+        "profileImage": "",
+        "verified": false,
+        "asset": "83115516594612587584557357657268293648087775719589518213335382338029264050626",
+        "conditionId": "0x9d7bc8bf5e371ca8112aef52674c4a7f54660916e36b154108b3ae6eaa461b28",
+        "avgPrice": 0.0607,
+        "size": 133.203,
+        "currPrice": 0.035,
+        "currentValue": 4.6621,
+        "cashPnl": -3.4305,
+        "totalBought": 1722.6813,
+        "realizedPnl": 604.9582,
+        "totalPnl": 601.5277,
+        "outcome": "Up",
+        "outcomeIndex": 0
+      }
+    ]
+  }
+]

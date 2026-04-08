@@ -1,0 +1,30 @@
+[
+  {
+    "proxyWallet": "0xc2e7800b5af46e6093872b177b7a5e7f0563be51",
+    "asset": "3039641309958397001906153616677074061284510636204155275446291716739429262374",
+    "conditionId": "0x895e01dbf3e6a33cd9a44ca0f8cdb5df1bd2b0b6ebed5300d28f8da7145145e4",
+    "size": 248651.2632,
+    "avgPrice": 0.0402,
+    "initialValue": 10014.6782,
+    "currentValue": 4600.0483,
+    "cashPnl": -5414.6299,
+    "percentPnl": -54.0669,
+    "totalBought": 248651.2632,
+    "realizedPnl": 0,
+    "percentRealizedPnl": -54.0669,
+    "curPrice": 0.0185,
+    "redeemable": false,
+    "mergeable": false,
+    "title": "Will Donald Trump win the 2028 Republican presidential nomination?",
+    "slug": "will-donald-trump-win-the-2028-republican-presidential-nomination",
+    "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/will-donald-trump-win-the-2028-us-presidential-election-4gVusUQRi_GG.png",
+    "eventId": "31875",
+    "eventSlug": "republican-presidential-nominee-2028",
+    "outcome": "Yes",
+    "outcomeIndex": 0,
+    "oppositeOutcome": "No",
+    "oppositeAsset": "27828976648682466778776999076215423777766972981338264154049603024771135223200",
+    "endDate": "2028-11-07",
+    "negativeRisk": true
+  }
+]

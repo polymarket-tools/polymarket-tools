@@ -153,6 +153,168 @@ export interface RawMarket {
   icon: string;
 }
 
+// ── Data API Types ──────────────────────────────────────────────
+
+export interface DataApiConfig {
+  host?: string;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  proxyWallet: string;
+  userName: string;
+  volume: number;
+  pnl: number;
+}
+
+export interface WalletPosition {
+  market: string;
+  outcome: string;
+  size: number;
+  avgPrice: number;
+  currentValue: number;
+  cashPnl: number;
+  percentPnl: number;
+}
+
+export interface WalletTrade {
+  market: string;
+  side: string;
+  price: number;
+  size: number;
+  timestamp: string;
+  transactionHash: string;
+}
+
+export interface MarketHolder {
+  wallet: string;
+  size: number;
+  avgPrice: number;
+}
+
+export interface MarketPosition {
+  proxyWallet: string;
+  outcome: string;
+  size: number;
+  avgPrice: number;
+  currentValue: number;
+  cashPnl: number;
+  realizedPnl: number;
+  totalPnl: number;
+}
+
+// ── Data API Raw Response Types ─────────────────────────────────
+
+export interface RawLeaderboardEntry {
+  rank: string;
+  proxyWallet: string;
+  userName: string;
+  xUsername: string;
+  verifiedBadge: boolean;
+  vol: number;
+  pnl: number;
+  profileImage: string;
+}
+
+export interface RawWalletPosition {
+  proxyWallet: string;
+  asset: string;
+  conditionId: string;
+  size: number;
+  avgPrice: number;
+  initialValue: number;
+  currentValue: number;
+  cashPnl: number;
+  percentPnl: number;
+  totalBought: number;
+  realizedPnl: number;
+  percentRealizedPnl: number;
+  curPrice: number;
+  redeemable: boolean;
+  mergeable: boolean;
+  title: string;
+  slug: string;
+  icon: string;
+  eventId: string;
+  eventSlug: string;
+  outcome: string;
+  outcomeIndex: number;
+  oppositeOutcome: string;
+  oppositeAsset: string;
+  endDate: string;
+  negativeRisk: boolean;
+}
+
+export interface RawWalletTrade {
+  proxyWallet: string;
+  side: string;
+  asset: string;
+  conditionId: string;
+  size: number;
+  price: number;
+  timestamp: number;
+  title: string;
+  slug: string;
+  icon: string;
+  eventSlug: string;
+  outcome: string;
+  outcomeIndex: number;
+  name: string;
+  pseudonym: string;
+  bio: string;
+  profileImage: string;
+  profileImageOptimized: string;
+  transactionHash: string;
+}
+
+export interface RawHolderEntry {
+  proxyWallet: string;
+  bio: string;
+  asset: string;
+  pseudonym: string;
+  amount: number;
+  displayUsernamePublic: boolean;
+  outcomeIndex: number;
+  name: string;
+  profileImage: string;
+  profileImageOptimized: string;
+  verified: boolean;
+}
+
+export interface RawHoldersResponse {
+  token: string;
+  holders: RawHolderEntry[];
+}
+
+export interface RawValueResponse {
+  user: string;
+  value: number;
+}
+
+export interface RawMarketPositionEntry {
+  proxyWallet: string;
+  name: string;
+  profileImage: string;
+  verified: boolean;
+  asset: string;
+  conditionId: string;
+  avgPrice: number;
+  size: number;
+  currPrice: number;
+  currentValue: number;
+  cashPnl: number;
+  totalBought: number;
+  realizedPnl: number;
+  totalPnl: number;
+  outcome: string;
+  outcomeIndex: number;
+}
+
+export interface RawMarketPositionsResponse {
+  token: string;
+  positions: RawMarketPositionEntry[];
+}
+
 // ── Error Types ──────────────────────────────────────────────────
 
 export class PolymarketError extends Error {

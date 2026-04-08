@@ -1,0 +1,23 @@
+[
+  {
+    "proxyWallet": "0xc2e7800b5af46e6093872b177b7a5e7f0563be51",
+    "side": "BUY",
+    "asset": "1223361296250432334047063463948140187131246046550340235272673736367197930139",
+    "conditionId": "0xbf1471a2a118e4467cb7aec2e3c2f448f2a74d746d6090ff24117c7bb3fecfa6",
+    "size": 6240.11,
+    "price": 0.5007103393843725,
+    "timestamp": 1775613755,
+    "title": "Spread: Warriors (-14.5)",
+    "slug": "nba-sac-gsw-2026-04-07-spread-home-14pt5",
+    "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/super+cool+basketball+in+red+and+blue+wow.png",
+    "eventSlug": "nba-sac-gsw-2026-04-07",
+    "outcome": "Kings",
+    "outcomeIndex": 1,
+    "name": "beachboy4",
+    "pseudonym": "Threadbare-Skunk",
+    "bio": "",
+    "profileImage": "",
+    "profileImageOptimized": "",
+    "transactionHash": "0x1e20e470f258d3a6559664793540dbb802170d7dab56b4c00dd114cabe69c915"
+  }
+]

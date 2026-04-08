@@ -1,0 +1,33 @@
+[
+  {
+    "token": "93274798891530808595343876589254921750643488287073830887575847378319570013052",
+    "holders": [
+      {
+        "proxyWallet": "0x89b5cdaaa4866c1e738406712012a630b4078beb",
+        "bio": "",
+        "asset": "93274798891530808595343876589254921750643488287073830887575847378319570013052",
+        "pseudonym": "Last-Hackwork",
+        "amount": 3792.136359,
+        "displayUsernamePublic": true,
+        "outcomeIndex": 1,
+        "name": "ohanism",
+        "profileImage": "",
+        "profileImageOptimized": "",
+        "verified": false
+      },
+      {
+        "proxyWallet": "0xee65685de42f8de9a03b4c53ee77d56a20d2cfc9",
+        "bio": "",
+        "asset": "93274798891530808595343876589254921750643488287073830887575847378319570013052",
+        "pseudonym": "Haunting-Cheese",
+        "amount": 3192.605202,
+        "displayUsernamePublic": true,
+        "outcomeIndex": 1,
+        "name": "0x50f7",
+        "profileImage": "",
+        "profileImageOptimized": "",
+        "verified": false
+      }
+    ]
+  }
+]
