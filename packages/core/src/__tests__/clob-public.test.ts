@@ -220,6 +220,56 @@ describe('ClobPublicClient', () => {
     });
   });
 
+  describe('parsePrice guard (via public methods)', () => {
+    it('throws on NaN price from getPrice', async () => {
+      mockJsonResponse({ price: 'not-a-number' });
+
+      try {
+        await client.getPrice('tok_abc123');
+        expect.fail('Should have thrown');
+      } catch (e) {
+        expect(e).toBeInstanceOf(PolymarketError);
+        const error = e as PolymarketError;
+        expect(error.message).toContain('Unexpected price value');
+      }
+    });
+
+    it('throws on empty string price from getPrice', async () => {
+      mockJsonResponse({ price: '' });
+
+      await expect(client.getPrice('tok_abc123')).rejects.toThrow(PolymarketError);
+    });
+
+    it('throws on undefined midpoint from getMidpoint', async () => {
+      mockJsonResponse({ mid: undefined });
+
+      try {
+        await client.getMidpoint('tok_abc123');
+        expect.fail('Should have thrown');
+      } catch (e) {
+        expect(e).toBeInstanceOf(PolymarketError);
+        const error = e as PolymarketError;
+        expect(error.message).toContain('Unexpected midpoint value');
+      }
+    });
+
+    it('throws on NaN bid from getSpread', async () => {
+      mockJsonResponse({ bid: 'NaN', ask: '0.65' });
+
+      await expect(client.getSpread('tok_abc123')).rejects.toThrow(PolymarketError);
+    });
+  });
+
+  describe('getPrices edge cases', () => {
+    it('returns empty Map for empty array without fetching', async () => {
+      const prices = await client.getPrices([]);
+
+      expect(prices).toBeInstanceOf(Map);
+      expect(prices.size).toBe(0);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
   describe('custom host', () => {
     it('uses custom host when provided', async () => {
       const customClient = new ClobPublicClient({ host: 'https://custom.clob.com' });
