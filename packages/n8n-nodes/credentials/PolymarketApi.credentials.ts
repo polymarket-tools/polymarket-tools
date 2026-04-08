@@ -37,11 +37,27 @@ export class PolymarketApi implements ICredentialType {
       description: 'Ethereum wallet private key for signing orders',
     },
     {
-      displayName: 'Builder Code',
+      displayName: 'Builder API Key',
       name: 'builderCode',
       type: 'string',
       default: '019d6e67-a336-78bf-b6ab-e5ad55e859f4',
-      description: 'Builder code for volume attribution. Defaults to polymarket-tools.',
+      description: 'Builder API key for volume attribution. Defaults to polymarket-tools.',
+    },
+    {
+      displayName: 'Builder Secret',
+      name: 'builderSecret',
+      type: 'string',
+      typeOptions: { password: true },
+      default: '',
+      description: 'Builder API secret for order signing attribution',
+    },
+    {
+      displayName: 'Builder Passphrase',
+      name: 'builderPassphrase',
+      type: 'string',
+      typeOptions: { password: true },
+      default: '',
+      description: 'Builder API passphrase for order signing attribution',
     },
   ];
 

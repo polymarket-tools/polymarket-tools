@@ -362,18 +362,20 @@ describe('ClobTradingClient', () => {
       const configWithBuilder: ClobTradingConfig = {
         ...BASE_CONFIG,
         builderCode: 'builder-api-key-123',
+        builderSecret: 'builder-secret-456',
+        builderPassphrase: 'builder-pass-789',
       };
       const builderClient = new ClobTradingClient(configWithBuilder);
       mockGetOpenOrders.mockResolvedValueOnce([]);
 
       await builderClient.getOpenOrders();
 
-      // Verify BuilderConfig was created
+      // Verify BuilderConfig was created with all 3 fields
       expect(MockBuilderConfig).toHaveBeenCalledWith({
         localBuilderCreds: {
           key: 'builder-api-key-123',
-          secret: '',
-          passphrase: '',
+          secret: 'builder-secret-456',
+          passphrase: 'builder-pass-789',
         },
       });
       // Verify it was passed to ClobClient

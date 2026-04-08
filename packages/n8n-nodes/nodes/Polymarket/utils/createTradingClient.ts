@@ -13,5 +13,7 @@ export async function createTradingClient(
     apiPassphrase: credentials.apiPassphrase as string,
     privateKey: credentials.privateKey as string,
     builderCode: (credentials.builderCode as string) || undefined,
+    builderSecret: (credentials.builderSecret as string) || undefined,
+    builderPassphrase: (credentials.builderPassphrase as string) || undefined,
   });
 }

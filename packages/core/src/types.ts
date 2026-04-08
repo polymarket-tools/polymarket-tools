@@ -16,6 +16,8 @@ export interface ClobTradingConfig {
   privateKey: string;
   chainId?: string;
   builderCode?: string;
+  builderSecret?: string;
+  builderPassphrase?: string;
 }
 
 // ── Search / Query Types ─────────────────────────────────────────

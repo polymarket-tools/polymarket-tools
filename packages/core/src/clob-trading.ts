@@ -69,15 +69,15 @@ export function normalizeOpenOrder(raw: {
  * We import dynamically to avoid TypeScript module resolution issues since
  * the package is a transitive dependency of @polymarket/clob-client.
  */
-async function createBuilderConfig(builderKey: string): Promise<unknown> {
+async function createBuilderConfig(
+  key: string,
+  secret: string,
+  passphrase: string,
+): Promise<unknown> {
   const mod = await import('@polymarket/builder-signing-sdk');
   const { BuilderConfig } = mod as any;
   return new BuilderConfig({
-    localBuilderCreds: {
-      key: builderKey,
-      secret: '',
-      passphrase: '',
-    },
+    localBuilderCreds: { key, secret, passphrase },
   });
 }
 
@@ -264,11 +264,13 @@ export class ClobTradingClient {
 
     // Build builder config if a builder code (builder API key) is provided.
     // The SDK's BuilderConfig takes localBuilderCreds { key, secret, passphrase }.
-    // For now we only pass the key; a full builder integration would need
-    // builder secret + passphrase as well.
     let builderConfig: unknown;
-    if (this.config.builderCode) {
-      builderConfig = await createBuilderConfig(this.config.builderCode);
+    if (this.config.builderCode && this.config.builderSecret && this.config.builderPassphrase) {
+      builderConfig = await createBuilderConfig(
+        this.config.builderCode,
+        this.config.builderSecret,
+        this.config.builderPassphrase,
+      );
     }
 
     let lastError: unknown;
