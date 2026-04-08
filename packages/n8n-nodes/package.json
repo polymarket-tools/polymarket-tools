@@ -1,7 +1,7 @@
 {
   "name": "n8n-nodes-polymarket-tools",
-  "version": "0.1.0",
-  "description": "Polymarket nodes for n8n workflow automation",
+  "version": "1.0.0",
+  "description": "n8n community node for Polymarket prediction markets - trading with EIP-712 signing, real-time prices, whale tracking, AI agent tools, and workflow templates",
   "license": "MIT",
   "homepage": "https://github.com/polymarket-tools/polymarket-tools",
   "repository": {
@@ -9,7 +9,28 @@
     "url": "https://github.com/polymarket-tools/polymarket-tools.git",
     "directory": "packages/n8n-nodes"
   },
-  "keywords": ["n8n-community-node-package", "n8n", "polymarket", "prediction-market", "trading"],
+  "keywords": [
+    "n8n-community-node-package",
+    "n8n",
+    "n8n-nodes",
+    "n8n-community-node",
+    "polymarket",
+    "prediction-markets",
+    "prediction-market",
+    "crypto",
+    "trading",
+    "trading-bot",
+    "betting",
+    "event-contracts",
+    "defi",
+    "blockchain",
+    "eip-712",
+    "ai-agent",
+    "ai-trading",
+    "workflow-automation",
+    "market-data",
+    "whale-tracking"
+  ],
   "main": "dist/nodes/Polymarket/Polymarket.node.js",
   "files": ["dist"],
   "scripts": {
