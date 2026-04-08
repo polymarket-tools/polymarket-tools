@@ -116,27 +116,39 @@ export interface Position {
   pnl: number;
 }
 
-// ── Raw API Types (snake_case from Gamma API) ────────────────────
+// ── Tag Type ────────────────────────────────────────────────────
 
-export interface RawMarketToken {
-  token_id: string;
-  outcome: string;
-  price: number;
+export interface Tag {
+  id: string;
+  label: string;
+  slug: string;
 }
 
+// ── Raw API Types (camelCase from Gamma API) ────────────────────
+// The Gamma API returns camelCase fields, JSON-encoded arrays for
+// outcomes/outcomePrices/clobTokenIds, and string numbers for
+// volume/liquidity.
+
 export interface RawMarket {
-  condition_id: string;
+  conditionId: string;
   question: string;
   slug: string;
   description: string;
   active: boolean;
   closed: boolean;
-  volume: number;
-  liquidity: number;
-  start_date_iso: string;
-  end_date_iso: string;
-  tokens: RawMarketToken[];
-  tags: string[];
+  /** Volume as a string number, e.g. "1435224.264825003" */
+  volume: string;
+  /** Liquidity as a string number, e.g. "61001.0135" */
+  liquidity: string;
+  startDate: string;
+  endDate: string;
+  /** JSON-encoded string array, e.g. '["Yes", "No"]' */
+  outcomes: string;
+  /** JSON-encoded string array, e.g. '["0.535", "0.465"]' */
+  outcomePrices: string;
+  /** JSON-encoded string array of token IDs */
+  clobTokenIds: string;
+  tags: Tag[];
   image: string;
   icon: string;
 }

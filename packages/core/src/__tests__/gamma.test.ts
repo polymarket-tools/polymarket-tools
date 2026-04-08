@@ -1,31 +1,30 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { GammaClient, normalizeMarket, normalizeToken } from '../gamma';
+import { GammaClient, normalizeMarket, buildTokens } from '../gamma';
 import { PolymarketError } from '../types';
-import type { RawMarket, RawMarketToken } from '../types';
+import type { RawMarket, Tag } from '../types';
 
-// ── Test fixtures ────────────────────────────────────────────────
-
-const RAW_TOKEN: RawMarketToken = {
-  token_id: 'tok_abc123',
-  outcome: 'Yes',
-  price: 0.65,
-};
+// ── Test fixtures (matching real Gamma API response shape) ──────
 
 const RAW_MARKET: RawMarket = {
-  condition_id: 'cond_xyz789',
-  question: 'Will it rain tomorrow?',
-  slug: 'will-it-rain-tomorrow',
-  description: 'Resolves Yes if it rains.',
+  conditionId: '0x9c1a39e24e40d3e1f8859cba5b9c540268a131bed064ede7588337a7e2645f18',
+  question: 'Russia-Ukraine Ceasefire before GTA VI?',
+  slug: 'russia-ukraine-ceasefire-before-gta-vi-554',
+  description: 'This market will resolve to "Yes" if a ceasefire is reached before GTA VI launches.',
   active: true,
   closed: false,
-  volume: 50000,
-  liquidity: 12000,
-  start_date_iso: '2026-04-01T00:00:00Z',
-  end_date_iso: '2026-04-30T00:00:00Z',
-  tokens: [RAW_TOKEN],
-  tags: ['weather', 'daily'],
-  image: 'https://example.com/rain.png',
-  icon: 'https://example.com/rain-icon.png',
+  volume: '1435224.264825003',
+  liquidity: '61001.0135',
+  startDate: '2025-05-02T15:48:00.174Z',
+  endDate: '2026-07-31T12:00:00Z',
+  outcomes: '["Yes", "No"]',
+  outcomePrices: '["0.535", "0.465"]',
+  clobTokenIds: '["85014348937654458413290737197591860504988605752925289827623068964690820517937", "25274365426654480055813702738775030297759498889998780242039714689784041375532"]',
+  tags: [
+    { id: '101259', label: 'Geopolitics', slug: 'geopolitics' },
+    { id: '101842', label: 'Gaming', slug: 'gaming' },
+  ],
+  image: 'https://polymarket-upload.s3.us-east-2.amazonaws.com/russia-ukraine-ceasefire.png',
+  icon: 'https://polymarket-upload.s3.us-east-2.amazonaws.com/russia-ukraine-ceasefire-icon.png',
 };
 
 function makeRawMarket(overrides: Partial<RawMarket> = {}): RawMarket {
@@ -59,51 +58,117 @@ function mockErrorResponse(status: number, body = '') {
     ok: false,
     status,
     statusText: 'Error',
+    headers: { get: () => null },
     json: () => Promise.reject(new Error('not json')),
     text: () => Promise.resolve(body),
   });
 }
 
-// ── Normalizer tests ─────────────────────────────────────────────
+// ── buildTokens tests ───────────────────────────────────────────
 
-describe('normalizeToken', () => {
-  it('converts snake_case to camelCase', () => {
-    const result = normalizeToken(RAW_TOKEN);
-    expect(result).toEqual({
-      tokenId: 'tok_abc123',
+describe('buildTokens', () => {
+  it('constructs MarketToken[] from JSON-encoded string arrays', () => {
+    const tokens = buildTokens(RAW_MARKET);
+    expect(tokens).toHaveLength(2);
+    expect(tokens[0]).toEqual({
+      tokenId: '85014348937654458413290737197591860504988605752925289827623068964690820517937',
       outcome: 'Yes',
-      price: 0.65,
+      price: 0.535,
     });
+    expect(tokens[1]).toEqual({
+      tokenId: '25274365426654480055813702738775030297759498889998780242039714689784041375532',
+      outcome: 'No',
+      price: 0.465,
+    });
+  });
+
+  it('returns empty array when outcomes/prices/tokenIds are missing', () => {
+    const raw = makeRawMarket({
+      outcomes: undefined as unknown as string,
+      outcomePrices: undefined as unknown as string,
+      clobTokenIds: undefined as unknown as string,
+    });
+    expect(buildTokens(raw)).toEqual([]);
+  });
+
+  it('returns empty array when JSON strings are invalid', () => {
+    const raw = makeRawMarket({
+      outcomes: 'not valid json',
+      outcomePrices: '{bad}',
+      clobTokenIds: '',
+    });
+    expect(buildTokens(raw)).toEqual([]);
+  });
+
+  it('handles mismatched array lengths by using shortest', () => {
+    const raw = makeRawMarket({
+      outcomes: '["Yes", "No", "Maybe"]',
+      outcomePrices: '["0.5", "0.3"]',
+      clobTokenIds: '["tok1", "tok2"]',
+    });
+    const tokens = buildTokens(raw);
+    expect(tokens).toHaveLength(2);
   });
 });
 
+// ── normalizeMarket tests ───────────────────────────────────────
+
 describe('normalizeMarket', () => {
-  it('converts a full raw market to camelCase', () => {
+  it('normalizes a full raw market response', () => {
     const result = normalizeMarket(RAW_MARKET);
 
-    expect(result.conditionId).toBe('cond_xyz789');
-    expect(result.question).toBe('Will it rain tomorrow?');
-    expect(result.slug).toBe('will-it-rain-tomorrow');
+    expect(result.conditionId).toBe('0x9c1a39e24e40d3e1f8859cba5b9c540268a131bed064ede7588337a7e2645f18');
+    expect(result.question).toBe('Russia-Ukraine Ceasefire before GTA VI?');
+    expect(result.slug).toBe('russia-ukraine-ceasefire-before-gta-vi-554');
     expect(result.active).toBe(true);
     expect(result.closed).toBe(false);
-    expect(result.volume).toBe(50000);
-    expect(result.liquidity).toBe(12000);
-    expect(result.startDate).toBe('2026-04-01T00:00:00Z');
-    expect(result.endDate).toBe('2026-04-30T00:00:00Z');
-    expect(result.tokens).toHaveLength(1);
-    expect(result.tokens[0].tokenId).toBe('tok_abc123');
-    expect(result.tags).toEqual(['weather', 'daily']);
+    expect(result.startDate).toBe('2025-05-02T15:48:00.174Z');
+    expect(result.endDate).toBe('2026-07-31T12:00:00Z');
   });
 
-  it('handles missing tokens and tags gracefully', () => {
-    const raw = {
-      ...RAW_MARKET,
-      tokens: undefined as unknown as RawMarketToken[],
-      tags: undefined as unknown as string[],
-    };
+  it('parses string volume and liquidity to numbers', () => {
+    const result = normalizeMarket(RAW_MARKET);
+    expect(result.volume).toBeCloseTo(1435224.264825003, 5);
+    expect(result.liquidity).toBeCloseTo(61001.0135, 4);
+  });
+
+  it('builds tokens from JSON-encoded string arrays', () => {
+    const result = normalizeMarket(RAW_MARKET);
+    expect(result.tokens).toHaveLength(2);
+    expect(result.tokens[0].tokenId).toBe('85014348937654458413290737197591860504988605752925289827623068964690820517937');
+    expect(result.tokens[0].outcome).toBe('Yes');
+    expect(result.tokens[0].price).toBe(0.535);
+  });
+
+  it('extracts tag labels as string array', () => {
+    const result = normalizeMarket(RAW_MARKET);
+    expect(result.tags).toEqual(['Geopolitics', 'Gaming']);
+  });
+
+  it('handles missing tags gracefully', () => {
+    const raw = makeRawMarket({ tags: undefined as unknown as Tag[] });
+    const result = normalizeMarket(raw);
+    expect(result.tags).toEqual([]);
+  });
+
+  it('handles missing token-related fields gracefully', () => {
+    const raw = makeRawMarket({
+      outcomes: undefined as unknown as string,
+      outcomePrices: undefined as unknown as string,
+      clobTokenIds: undefined as unknown as string,
+    });
     const result = normalizeMarket(raw);
     expect(result.tokens).toEqual([]);
-    expect(result.tags).toEqual([]);
+  });
+
+  it('handles zero/NaN volume and liquidity', () => {
+    const raw = makeRawMarket({
+      volume: '' as unknown as string,
+      liquidity: 'not-a-number' as unknown as string,
+    });
+    const result = normalizeMarket(raw);
+    expect(result.volume).toBe(0);
+    expect(result.liquidity).toBe(0);
   });
 });
 
@@ -120,13 +185,13 @@ describe('GammaClient', () => {
     it('sends query as _q param', async () => {
       mockJsonResponse([RAW_MARKET]);
 
-      const results = await client.searchMarkets({ query: 'rain' });
+      const results = await client.searchMarkets({ query: 'ceasefire' });
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const url = mockFetch.mock.calls[0][0] as string;
-      expect(url).toContain('_q=rain');
+      expect(url).toContain('_q=ceasefire');
       expect(results).toHaveLength(1);
-      expect(results[0].conditionId).toBe('cond_xyz789');
+      expect(results[0].conditionId).toBe('0x9c1a39e24e40d3e1f8859cba5b9c540268a131bed064ede7588337a7e2645f18');
     });
 
     it('includes filter params when provided', async () => {
@@ -162,14 +227,14 @@ describe('GammaClient', () => {
 
     it('normalizes raw market data', async () => {
       mockJsonResponse([
-        makeRawMarket({ condition_id: 'c1', question: 'Q1' }),
-        makeRawMarket({ condition_id: 'c2', question: 'Q2' }),
+        makeRawMarket({ conditionId: '0xc1', question: 'Q1' }),
+        makeRawMarket({ conditionId: '0xc2', question: 'Q2' }),
       ]);
 
       const results = await client.searchMarkets({ query: 'test' });
       expect(results).toHaveLength(2);
-      expect(results[0].conditionId).toBe('c1');
-      expect(results[1].conditionId).toBe('c2');
+      expect(results[0].conditionId).toBe('0xc1');
+      expect(results[1].conditionId).toBe('0xc2');
     });
 
     it('throws PolymarketError on API error', async () => {
@@ -197,18 +262,18 @@ describe('GammaClient', () => {
     it('fetches a market by conditionId', async () => {
       mockJsonResponse(RAW_MARKET);
 
-      const result = await client.getMarket('cond_xyz789');
+      const result = await client.getMarket('0x9c1a');
 
       const url = mockFetch.mock.calls[0][0] as string;
-      expect(url).toContain('/markets/cond_xyz789');
-      expect(result.conditionId).toBe('cond_xyz789');
-      expect(result.question).toBe('Will it rain tomorrow?');
+      expect(url).toContain('/markets/0x9c1a');
+      expect(result.conditionId).toBe('0x9c1a39e24e40d3e1f8859cba5b9c540268a131bed064ede7588337a7e2645f18');
+      expect(result.question).toBe('Russia-Ukraine Ceasefire before GTA VI?');
     });
 
-    it('normalizes the raw response', async () => {
+    it('normalizes the raw response dates', async () => {
       mockJsonResponse(makeRawMarket({
-        start_date_iso: '2026-05-01T00:00:00Z',
-        end_date_iso: '2026-05-31T00:00:00Z',
+        startDate: '2026-05-01T00:00:00Z',
+        endDate: '2026-05-31T00:00:00Z',
       }));
 
       const result = await client.getMarket('some-id');
@@ -229,11 +294,11 @@ describe('GammaClient', () => {
     it('fetches a market by slug', async () => {
       mockJsonResponse([RAW_MARKET]);
 
-      const result = await client.getMarketBySlug('will-it-rain-tomorrow');
+      const result = await client.getMarketBySlug('russia-ukraine-ceasefire-before-gta-vi-554');
 
       const url = mockFetch.mock.calls[0][0] as string;
-      expect(url).toContain('slug=will-it-rain-tomorrow');
-      expect(result.conditionId).toBe('cond_xyz789');
+      expect(url).toContain('slug=russia-ukraine-ceasefire-before-gta-vi-554');
+      expect(result.conditionId).toBe('0x9c1a39e24e40d3e1f8859cba5b9c540268a131bed064ede7588337a7e2645f18');
     });
 
     it('throws PolymarketError when no market found', async () => {
@@ -253,12 +318,12 @@ describe('GammaClient', () => {
 
     it('returns first market when multiple match', async () => {
       mockJsonResponse([
-        makeRawMarket({ condition_id: 'first' }),
-        makeRawMarket({ condition_id: 'second' }),
+        makeRawMarket({ conditionId: '0xfirst' }),
+        makeRawMarket({ conditionId: '0xsecond' }),
       ]);
 
       const result = await client.getMarketBySlug('some-slug');
-      expect(result.conditionId).toBe('first');
+      expect(result.conditionId).toBe('0xfirst');
     });
   });
 
@@ -287,14 +352,22 @@ describe('GammaClient', () => {
   });
 
   describe('getTags', () => {
-    it('fetches available tags', async () => {
-      mockJsonResponse(['politics', 'crypto', 'sports']);
+    it('fetches available tags as Tag objects', async () => {
+      const rawTags = [
+        { id: '101259', label: 'Health and Human Services', slug: 'health-and-human-services' },
+        { id: '101842', label: 'Sweeden', slug: 'sweeden' },
+      ];
+      mockJsonResponse(rawTags);
 
       const tags = await client.getTags();
 
       const url = mockFetch.mock.calls[0][0] as string;
       expect(url).toContain('/tags');
-      expect(tags).toEqual(['politics', 'crypto', 'sports']);
+      expect(tags).toHaveLength(2);
+      expect(tags[0].id).toBe('101259');
+      expect(tags[0].label).toBe('Health and Human Services');
+      expect(tags[0].slug).toBe('health-and-human-services');
+      expect(tags[1].label).toBe('Sweeden');
     });
   });
 

@@ -28,7 +28,7 @@ export const getPriceFields: INodeProperties[] = [
         value: 'midpoint',
       },
       {
-        name: 'Spread (Bid/Ask)',
+        name: 'Spread',
         value: 'spread',
       },
       {
@@ -53,21 +53,26 @@ export async function getPriceExecute(
   const includeData = this.getNodeParameter('includeData', i, []) as string[];
 
   const clob = new ClobPublicClient();
-  const price = await clob.getPrice(tokenId);
-  const data: IDataObject = { tokenId, price };
+  const data: IDataObject = { tokenId };
+
+  // Fetch all requested data in parallel
+  const promises: Promise<void>[] = [
+    clob.getPrice(tokenId).then((p) => { data.price = p; }),
+  ];
 
   if (includeData.includes('midpoint')) {
-    data.midpoint = await clob.getMidpoint(tokenId);
+    promises.push(clob.getMidpoint(tokenId).then((m) => { data.midpoint = m; }));
   }
   if (includeData.includes('spread')) {
-    const spread = await clob.getSpread(tokenId);
-    data.bid = spread.bid;
-    data.ask = spread.ask;
-    data.spread = spread.spread;
+    promises.push(clob.getSpread(tokenId).then((s) => {
+      data.spread = s;
+    }));
   }
   if (includeData.includes('orderBook')) {
-    data.orderBook = await clob.getOrderBook(tokenId);
+    promises.push(clob.getOrderBook(tokenId).then((b) => { data.orderBook = b; }));
   }
+
+  await Promise.all(promises);
 
   return [{ json: data, pairedItem: i }];
 }

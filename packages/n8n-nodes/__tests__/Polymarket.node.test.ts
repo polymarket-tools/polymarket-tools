@@ -53,7 +53,7 @@ const mockGetMarketBySlug = vi.fn().mockResolvedValue({
 });
 const mockGetPrice = vi.fn().mockResolvedValue(0.65);
 const mockGetMidpoint = vi.fn().mockResolvedValue(0.63);
-const mockGetSpread = vi.fn().mockResolvedValue({ bid: 0.6, ask: 0.65, spread: 0.05 });
+const mockGetSpread = vi.fn().mockResolvedValue(0.05);
 const mockGetOrderBook = vi.fn().mockResolvedValue({ bids: [], asks: [] });
 const mockPlaceOrder = vi.fn().mockResolvedValue({
   id: 'ord1',
@@ -194,8 +194,6 @@ describe('Polymarket.node execute()', () => {
     const json = result[0][0].json;
     expect(json).toHaveProperty('price', 0.65);
     expect(json).toHaveProperty('midpoint', 0.63);
-    expect(json).toHaveProperty('bid', 0.6);
-    expect(json).toHaveProperty('ask', 0.65);
     expect(json).toHaveProperty('spread', 0.05);
   });
 

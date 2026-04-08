@@ -2,7 +2,6 @@ import type { INodeProperties } from 'n8n-workflow';
 import { placeOrderFields } from './placeOrder.operation';
 import { cancelOrderFields } from './cancelOrder.operation';
 import { getOpenOrdersFields } from './getOpenOrders.operation';
-import { getPositionsFields } from './getPositions.operation';
 
 export const tradingOperations: INodeProperties = {
   displayName: 'Operation',
@@ -32,13 +31,6 @@ export const tradingOperations: INodeProperties = {
       description:
         'List all open orders on Polymarket, optionally filtered by market. Requires API credentials.',
     },
-    {
-      name: 'Get Positions',
-      value: 'getPositions',
-      action: 'Get positions',
-      description:
-        'List current positions on Polymarket. Shows market, outcome, size, and entry price. Requires API credentials.',
-    },
   ],
   default: 'placeOrder',
 };
@@ -47,10 +39,8 @@ export const tradingFields: INodeProperties[] = [
   ...placeOrderFields,
   ...cancelOrderFields,
   ...getOpenOrdersFields,
-  ...getPositionsFields,
 ];
 
 export { placeOrderExecute } from './placeOrder.operation';
 export { cancelOrderExecute } from './cancelOrder.operation';
 export { getOpenOrdersExecute } from './getOpenOrders.operation';
-export { getPositionsExecute } from './getPositions.operation';

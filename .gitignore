@@ -6,3 +6,7 @@ dist/
 .turbo/
 coverage/
 .DS_Store
+.claude/
+CLAUDE.md
+docs/plans/
+docs/journey/

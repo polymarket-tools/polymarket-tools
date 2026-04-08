@@ -1,0 +1,25 @@
+{
+  "conditionId": "0x9c1a39e24e40d3e1f8859cba5b9c540268a131bed064ede7588337a7e2645f18",
+  "question": "Russia-Ukraine Ceasefire before GTA VI?",
+  "slug": "russia-ukraine-ceasefire-before-gta-vi-554",
+  "outcomes": "[\"Yes\", \"No\"]",
+  "outcomePrices": "[\"0.535\", \"0.465\"]",
+  "clobTokenIds": "[\"85014348937654458413290737197591860504988605752925289827623068964690820517937\", \"25274365426654480055813702738775030297759498889998780242039714689784041375532\"]",
+  "volume": "1435224.264825003",
+  "liquidity": "61001.0135",
+  "active": true,
+  "closed": false,
+  "startDate": "2025-05-02T15:48:00.174Z",
+  "endDate": "2026-07-31T12:00:00Z",
+  "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/russia-ukraine-ceasefire.png",
+  "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/russia-ukraine-ceasefire-icon.png",
+  "description": "This market will resolve to \"Yes\" if a ceasefire is reached before GTA VI launches.",
+  "bestBid": 0.53,
+  "bestAsk": 0.54,
+  "spread": 0.01,
+  "volume24hr": 10357.29,
+  "tags": [
+    {"id": "101259", "label": "Geopolitics", "slug": "geopolitics"},
+    {"id": "101842", "label": "Gaming", "slug": "gaming"}
+  ]
+}

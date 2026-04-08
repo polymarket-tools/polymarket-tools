@@ -6,6 +6,7 @@ export type {
   SearchMarketsParams,
   MarketToken,
   Market,
+  Tag,
   TokenPrice,
   OrderBookEntry,
   OrderBook,
@@ -16,7 +17,6 @@ export type {
   Order,
   Position,
   RawMarket,
-  RawMarketToken,
 } from './types';
 
 export { PolymarketError } from './types';
@@ -24,7 +24,10 @@ export { PolymarketError } from './types';
 // Errors
 export { sanitizeError } from './errors';
 
+// HTTP utilities and constants
+export { fetchJson, DEFAULT_CLOB_HOST, DEFAULT_GAMMA_HOST } from './http';
+
 // Clients
-export { GammaClient, normalizeMarket, normalizeToken } from './gamma';
+export { GammaClient, normalizeMarket, buildTokens } from './gamma';
 export { ClobPublicClient } from './clob-public';
-export { ClobTradingClient } from './clob-trading';
+export { ClobTradingClient, normalizeOpenOrder } from './clob-trading';

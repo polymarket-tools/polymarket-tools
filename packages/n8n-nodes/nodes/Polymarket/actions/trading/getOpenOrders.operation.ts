@@ -1,5 +1,5 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData, INodeProperties } from 'n8n-workflow';
-import { ClobTradingClient } from '@polymarket-tools/core';
+import { createTradingClient } from '../../utils/createTradingClient';
 
 export const getOpenOrdersFields: INodeProperties[] = [
   {
@@ -21,16 +21,7 @@ export async function getOpenOrdersExecute(
   this: IExecuteFunctions,
   i: number,
 ): Promise<INodeExecutionData[]> {
-  const credentials = await this.getCredentials('polymarketApi');
-
-  const client = new ClobTradingClient({
-    host: 'https://clob.polymarket.com',
-    apiKey: credentials.apiKey as string,
-    apiSecret: credentials.apiSecret as string,
-    apiPassphrase: credentials.apiPassphrase as string,
-    privateKey: credentials.privateKey as string,
-    builderCode: (credentials.builderCode as string) || undefined,
-  });
+  const client = await createTradingClient(this);
 
   const marketId = this.getNodeParameter('marketId', i, '') as string;
   const orders = await client.getOpenOrders(marketId || undefined);

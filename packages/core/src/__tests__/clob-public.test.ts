@@ -52,7 +52,7 @@ describe('ClobPublicClient', () => {
       const price = await client.getPrice('tok_abc123');
 
       const url = mockFetch.mock.calls[0][0] as string;
-      expect(url).toBe('https://clob.polymarket.com/price?token_id=tok_abc123');
+      expect(url).toBe('https://clob.polymarket.com/price?token_id=tok_abc123&side=buy');
       expect(price).toBe(0.65);
     });
 
@@ -87,29 +87,28 @@ describe('ClobPublicClient', () => {
   });
 
   describe('getSpread', () => {
-    it('constructs correct URL and parses response', async () => {
-      mockJsonResponse({ bid: '0.60', ask: '0.65' });
+    it('constructs correct URL and parses spread value', async () => {
+      mockJsonResponse({ spread: '0.01' });
 
       const spread = await client.getSpread('tok_abc123');
 
       const url = mockFetch.mock.calls[0][0] as string;
       expect(url).toBe('https://clob.polymarket.com/spread?token_id=tok_abc123');
-      expect(spread.bid).toBe(0.60);
-      expect(spread.ask).toBe(0.65);
-    });
-
-    it('computes spread as ask - bid', async () => {
-      mockJsonResponse({ bid: '0.60', ask: '0.65' });
-
-      const spread = await client.getSpread('tok_abc123');
-      expect(spread.spread).toBeCloseTo(0.05, 10);
+      expect(spread).toBe(0.01);
     });
 
     it('handles zero spread', async () => {
-      mockJsonResponse({ bid: '0.50', ask: '0.50' });
+      mockJsonResponse({ spread: '0' });
 
       const spread = await client.getSpread('tok_abc123');
-      expect(spread.spread).toBe(0);
+      expect(spread).toBe(0);
+    });
+
+    it('handles decimal spread values', async () => {
+      mockJsonResponse({ spread: '0.05' });
+
+      const spread = await client.getSpread('tok_abc123');
+      expect(spread).toBeCloseTo(0.05, 10);
     });
   });
 
@@ -253,8 +252,8 @@ describe('ClobPublicClient', () => {
       }
     });
 
-    it('throws on NaN bid from getSpread', async () => {
-      mockJsonResponse({ bid: 'NaN', ask: '0.65' });
+    it('throws on NaN spread from getSpread', async () => {
+      mockJsonResponse({ spread: 'NaN' });
 
       await expect(client.getSpread('tok_abc123')).rejects.toThrow(PolymarketError);
     });

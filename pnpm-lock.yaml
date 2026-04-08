@@ -13,6 +13,9 @@ importers:
       '@polymarket/clob-client':
         specifier: ^5.8.1
         version: 5.8.1(typescript@5.9.3)(zod@3.25.67)
+      viem:
+        specifier: ^2.47.10
+        version: 2.47.10(typescript@5.9.3)(zod@3.25.67)
       ws:
         specifier: ^8.18.0
         version: 8.20.0

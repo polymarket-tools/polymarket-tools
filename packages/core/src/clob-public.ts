@@ -1,7 +1,14 @@
 import type { ClobPublicConfig, OrderBook } from './types';
-import { sanitizeError } from './errors';
+import { PolymarketError } from './types';
+import { fetchJson, DEFAULT_CLOB_HOST } from './http';
 
-const DEFAULT_CLOB_HOST = 'https://clob.polymarket.com';
+function parsePrice(value: string, label: string, endpoint: string): number {
+  const num = parseFloat(value);
+  if (!Number.isFinite(num)) {
+    throw new PolymarketError(`Unexpected ${label} value: ${value}`, 0, endpoint);
+  }
+  return num;
+}
 
 // ── CLOB Public Client ──────────────────────────────────────────
 
@@ -15,13 +22,12 @@ export class ClobPublicClient {
   /**
    * Get the price for a token, optionally for a specific side (buy/sell).
    */
-  async getPrice(tokenId: string, side?: 'buy' | 'sell'): Promise<number> {
-    const params = new URLSearchParams({ token_id: tokenId });
-    if (side) params.set('side', side);
+  async getPrice(tokenId: string, side: 'buy' | 'sell' = 'buy'): Promise<number> {
+    const params = new URLSearchParams({ token_id: tokenId, side });
 
     const url = `${this.host}/price?${params.toString()}`;
-    const data = await this.fetchJson<{ price: string }>(url);
-    return parseFloat(data.price);
+    const data = await fetchJson<{ price: string }>(url, 'CLOB API');
+    return parsePrice(data.price, 'price', url);
   }
 
   /**
@@ -29,19 +35,17 @@ export class ClobPublicClient {
    */
   async getMidpoint(tokenId: string): Promise<number> {
     const url = `${this.host}/midpoint?token_id=${tokenId}`;
-    const data = await this.fetchJson<{ mid: string }>(url);
-    return parseFloat(data.mid);
+    const data = await fetchJson<{ mid: string }>(url, 'CLOB API');
+    return parsePrice(data.mid, 'midpoint', url);
   }
 
   /**
-   * Get the bid/ask spread for a token. Computes spread = ask - bid.
+   * Get the spread for a token. The API returns only { spread: string }.
    */
-  async getSpread(tokenId: string): Promise<{ bid: number; ask: number; spread: number }> {
+  async getSpread(tokenId: string): Promise<number> {
     const url = `${this.host}/spread?token_id=${tokenId}`;
-    const data = await this.fetchJson<{ bid: string; ask: string }>(url);
-    const bid = parseFloat(data.bid);
-    const ask = parseFloat(data.ask);
-    return { bid, ask, spread: ask - bid };
+    const data = await fetchJson<{ spread: string }>(url, 'CLOB API');
+    return parsePrice(data.spread, 'spread', url);
   }
 
   /**
@@ -49,7 +53,7 @@ export class ClobPublicClient {
    */
   async getOrderBook(tokenId: string): Promise<OrderBook> {
     const url = `${this.host}/book?token_id=${tokenId}`;
-    const data = await this.fetchJson<OrderBook>(url);
+    const data = await fetchJson<OrderBook>(url, 'CLOB API');
     return { bids: data.bids, asks: data.asks };
   }
 
@@ -57,44 +61,16 @@ export class ClobPublicClient {
    * Get prices for multiple tokens in a single request.
    */
   async getPrices(tokenIds: string[]): Promise<Map<string, number>> {
+    if (tokenIds.length === 0) return new Map();
     const url = `${this.host}/prices?token_ids=${tokenIds.join(',')}`;
-    const data = await this.fetchJson<Record<string, string>>(url);
+    const data = await fetchJson<Record<string, string>>(url, 'CLOB API');
 
     const result = new Map<string, number>();
+    const url2 = `${this.host}/prices`;
     for (const [id, price] of Object.entries(data)) {
-      result.set(id, parseFloat(price));
+      result.set(id, parsePrice(price, `price[${id}]`, url2));
     }
     return result;
   }
 
-  // ── Internal ─────────────────────────────────────────────────
-
-  private async fetchJson<T>(url: string): Promise<T> {
-    let response: Response;
-
-    try {
-      response = await fetch(url);
-    } catch (error) {
-      throw sanitizeError(error, 0, url);
-    }
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        const retryAfter = response.headers.get('retry-after');
-        const message = retryAfter
-          ? `Rate limited. Retry after ${retryAfter} seconds.`
-          : 'Rate limited.';
-        throw sanitizeError(new Error(message), 429, url);
-      }
-
-      const body = await response.text().catch(() => '');
-      throw sanitizeError(
-        new Error(`CLOB API error: ${response.status} ${response.statusText} - ${body}`),
-        response.status,
-        url,
-      );
-    }
-
-    return response.json() as Promise<T>;
-  }
 }

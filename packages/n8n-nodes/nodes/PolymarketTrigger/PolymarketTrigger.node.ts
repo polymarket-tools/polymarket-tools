@@ -152,15 +152,16 @@ export class PolymarketTrigger implements INodeType {
     if (triggerWhen === 'priceChange') {
       const tokenId = this.getNodeParameter('tokenId') as string;
       const changeAmount = this.getNodeParameter('changeAmount') as number;
+      const stateKey = `priceChange_${tokenId}`;
 
       const clob = new ClobPublicClient();
       const currentPrice = await clob.getMidpoint(tokenId);
 
-      const lastPrice = staticData.lastPrice as number | undefined;
+      const lastPrice = staticData[stateKey] as number | undefined;
 
       // First poll: store baseline, don't trigger
       if (lastPrice === undefined) {
-        staticData.lastPrice = currentPrice;
+        staticData[stateKey] = currentPrice;
         return null;
       }
 
@@ -168,7 +169,7 @@ export class PolymarketTrigger implements INodeType {
       const absChange = Math.abs(change);
 
       // Always update stored price
-      staticData.lastPrice = currentPrice;
+      staticData[stateKey] = currentPrice;
 
       if (absChange >= changeAmount) {
         const direction = change > 0 ? 'up' : 'down';
@@ -200,15 +201,16 @@ export class PolymarketTrigger implements INodeType {
     if (triggerWhen === 'crossesThreshold') {
       const tokenId = this.getNodeParameter('tokenId') as string;
       const thresholdPrice = this.getNodeParameter('thresholdPrice') as number;
+      const stateKey = `crossesThreshold_${tokenId}`;
 
       const clob = new ClobPublicClient();
       const currentPrice = await clob.getMidpoint(tokenId);
 
-      const lastPrice = staticData.lastPrice as number | undefined;
+      const lastPrice = staticData[stateKey] as number | undefined;
 
       // First poll: store baseline, don't trigger
       if (lastPrice === undefined) {
-        staticData.lastPrice = currentPrice;
+        staticData[stateKey] = currentPrice;
         return null;
       }
 
@@ -216,7 +218,7 @@ export class PolymarketTrigger implements INodeType {
       const crossedDown = lastPrice > thresholdPrice && currentPrice <= thresholdPrice;
 
       // Always update stored price
-      staticData.lastPrice = currentPrice;
+      staticData[stateKey] = currentPrice;
 
       if (crossedUp || crossedDown) {
         const direction = crossedUp ? 'up' : 'down';
@@ -274,12 +276,12 @@ export class PolymarketTrigger implements INodeType {
       const knownSet = new Set(knownIds);
       const newMarkets = markets.filter((m) => !knownSet.has(m.conditionId));
 
-      // Update stored IDs to include all current markets
-      staticData.knownMarketIds = Array.from(currentIds);
-
       if (newMarkets.length === 0) {
         return null;
       }
+
+      // Only update stored IDs when there are new markets (avoid no-op DB writes)
+      staticData.knownMarketIds = Array.from(currentIds);
 
       const now = new Date().toISOString();
       const items: INodeExecutionData[] = newMarkets.map((market) => ({

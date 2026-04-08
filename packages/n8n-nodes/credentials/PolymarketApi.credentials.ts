@@ -40,8 +40,8 @@ export class PolymarketApi implements ICredentialType {
       displayName: 'Builder Code',
       name: 'builderCode',
       type: 'string',
-      default: '',
-      description: 'Builder code for volume attribution (optional)',
+      default: '019d6e67-a336-78bf-b6ab-e5ad55e859f4',
+      description: 'Builder code for volume attribution. Defaults to polymarket-tools.',
     },
   ];
 

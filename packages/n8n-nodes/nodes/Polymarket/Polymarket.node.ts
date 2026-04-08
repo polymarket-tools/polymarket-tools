@@ -22,7 +22,6 @@ import {
   placeOrderExecute,
   cancelOrderExecute,
   getOpenOrdersExecute,
-  getPositionsExecute,
 } from './actions/trading';
 // Dynamic loading
 import { searchMarkets, getMarketTokens } from './methods/loadOptions';
@@ -101,8 +100,6 @@ export class Polymarket implements INodeType {
           results = await cancelOrderExecute.call(this, i);
         } else if (resource === 'trading' && operation === 'getOpenOrders') {
           results = await getOpenOrdersExecute.call(this, i);
-        } else if (resource === 'trading' && operation === 'getPositions') {
-          results = await getPositionsExecute.call(this, i);
         } else {
           throw new NodeOperationError(
             this.getNode(),

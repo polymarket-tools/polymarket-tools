@@ -1,0 +1,30 @@
+FROM n8nio/n8n:latest
+
+USER root
+
+# Copy built packages directly (not tarballs)
+COPY packages/core/dist /opt/custom-nodes/@polymarket-tools/core/dist
+COPY packages/core/package.json /opt/custom-nodes/@polymarket-tools/core/package.json
+
+COPY packages/n8n-nodes/dist /opt/custom-nodes/n8n-nodes-polymarket/dist
+COPY packages/n8n-nodes/package.json /opt/custom-nodes/n8n-nodes-polymarket/package.json
+
+# Install core dependencies (ws)
+WORKDIR /opt/custom-nodes/@polymarket-tools/core
+RUN npm install --omit=dev --omit=peer 2>/dev/null || true
+
+# Link core into n8n-nodes
+WORKDIR /opt/custom-nodes/n8n-nodes-polymarket
+RUN mkdir -p node_modules/@polymarket-tools && \
+    ln -s /opt/custom-nodes/@polymarket-tools/core node_modules/@polymarket-tools/core
+
+# Link n8n-workflow from n8n's own installation so peer deps resolve
+RUN ln -s /usr/local/lib/node_modules/n8n/node_modules/n8n-workflow node_modules/n8n-workflow
+
+RUN chown -R node:node /opt/custom-nodes
+
+USER node
+WORKDIR /home/node
+
+# Tell n8n where to find custom nodes
+ENV N8N_CUSTOM_EXTENSIONS=/opt/custom-nodes/n8n-nodes-polymarket

@@ -59,6 +59,20 @@ vi.mock('@polymarket/builder-signing-sdk', () => ({
   BuilderConfig: MockBuilderConfig,
 }));
 
+// Mock viem to avoid real wallet creation in unit tests
+vi.mock('viem', () => ({
+  createWalletClient: vi.fn().mockReturnValue({ type: 'mock-wallet' }),
+  http: vi.fn().mockReturnValue('mock-transport'),
+}));
+
+vi.mock('viem/accounts', () => ({
+  privateKeyToAccount: vi.fn().mockReturnValue({ address: '0xmock', type: 'local' }),
+}));
+
+vi.mock('viem/chains', () => ({
+  polygon: { id: 137, name: 'Polygon' },
+}));
+
 // ── Fixtures ────────────────────────────────────────────────────
 
 const BASE_CONFIG: ClobTradingConfig = {
@@ -188,7 +202,7 @@ describe('ClobTradingClient', () => {
       expect(MockClobClient).toHaveBeenCalledWith(
         'https://clob.polymarket.com',
         137, // default chainId
-        BASE_CONFIG.privateKey,
+        expect.any(Object), // viem WalletClient created from privateKey
         { key: 'test-api-key', secret: 'test-api-secret', passphrase: 'test-passphrase' },
         undefined, // signatureType
         undefined, // funderAddress

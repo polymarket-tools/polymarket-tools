@@ -2,6 +2,20 @@ import { ClobClient, Chain } from '@polymarket/clob-client';
 import type { ClobTradingConfig, PlaceOrderParams, Order, Position, OrderSide } from './types';
 import { sanitizeError } from './errors';
 
+// Dynamic imports for viem to avoid TypeScript crawling into ox/webauthn .ts sources
+async function createSigner(privateKey: string) {
+  const { createWalletClient, http } = await import('viem');
+  const { privateKeyToAccount } = await import('viem/accounts');
+  const { polygon } = await import('viem/chains');
+
+  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  return createWalletClient({
+    account,
+    chain: polygon,
+    transport: http(),
+  });
+}
+
 // ── Constants ───────────────────────────────────────────────────
 
 const DEFAULT_CHAIN_ID = Chain.POLYGON;
@@ -30,7 +44,7 @@ function resolveOrderType(params: PlaceOrderParams): string {
 /**
  * Normalize an SDK OpenOrder into our Order type.
  */
-function normalizeOpenOrder(raw: {
+export function normalizeOpenOrder(raw: {
   id: string;
   status: string;
   asset_id: string;
@@ -43,7 +57,7 @@ function normalizeOpenOrder(raw: {
     id: raw.id,
     status: raw.status,
     tokenId: raw.asset_id,
-    side: raw.side as OrderSide,
+    side: raw.side.toUpperCase() as OrderSide,
     price: raw.price,
     size: raw.original_size,
     createdAt: new Date(raw.created_at * 1000).toISOString(),
@@ -118,9 +132,18 @@ export class ClobTradingClient {
       const orderType = resolveOrderType(params);
       const response = await clobClient.postOrder(signedOrder, orderType as any);
 
+      const orderId = response.orderID ?? '';
+      const status = String(response.status ?? 'unknown');
+
+      // Reject if no order ID returned -- the CLOB may return numeric HTTP status codes
+      // (e.g. 403 for insufficient balance) or simply omit the orderID on failure
+      if (!orderId) {
+        throw new Error(`Order rejected by CLOB (status: ${status}). Check wallet balance and permissions.`);
+      }
+
       return {
-        id: response.orderID ?? '',
-        status: response.status ?? 'unknown',
+        id: orderId,
+        status,
         tokenId: params.tokenId,
         side: params.side,
         price: String(params.price),
@@ -165,9 +188,17 @@ export class ClobTradingClient {
       const params = marketId ? { market: marketId } : undefined;
       const raw = await clobClient.getOpenOrders(params);
 
-      // The SDK returns OpenOrder[] (OpenOrdersResponse)
-      const orders = Array.isArray(raw) ? raw : [];
-      return orders.map(normalizeOpenOrder);
+      // The SDK may return an array directly, an object with a data property,
+      // or an unexpected shape -- handle all cases defensively
+      let orders: unknown[];
+      if (Array.isArray(raw)) {
+        orders = raw;
+      } else if (raw && typeof raw === 'object' && Array.isArray((raw as any).data)) {
+        orders = (raw as any).data;
+      } else {
+        orders = [];
+      }
+      return orders.map((o: any) => normalizeOpenOrder(o));
     } catch (error) {
       throw sanitizeError(error, 0, 'getOpenOrders');
     }
@@ -179,14 +210,12 @@ export class ClobTradingClient {
    * This would need to call the data API directly. Placeholder for now.
    */
   async getPositions(): Promise<Position[]> {
-    try {
-      // The CLOB SDK doesn't expose positions directly.
-      // Positions live at data-api.polymarket.com/positions
-      // TODO: Implement via direct fetch to data API
-      return [];
-    } catch (error) {
-      throw sanitizeError(error, 0, 'getPositions');
-    }
+    // The CLOB SDK doesn't expose positions -- they live at data-api.polymarket.com/positions
+    throw sanitizeError(
+      new Error('getPositions is not yet implemented. The CLOB SDK does not support positions; this requires the Polymarket Data API.'),
+      501,
+      'getPositions',
+    );
   }
 
   /**
@@ -260,14 +289,13 @@ export class ClobTradingClient {
 
     for (let attempt = 1; attempt <= CLIENT_INIT_MAX_RETRIES; attempt++) {
       try {
-        // The SDK's ClobSigner type expects an ethers Signer or viem WalletClient,
-        // but the private key string is passed through to the signing layer.
-        // In production, callers should provide a hex private key that the
-        // SDK's order builder uses internally via viem's signing utilities.
+        // Create a viem WalletClient from the private key for EIP-712 signing
+        const wallet = await createSigner(this.config.privateKey);
+
         this.client = new ClobClient(
           this.config.host,
-          chainId as any,
-          this.config.privateKey as any,
+          chainId,
+          wallet,
           creds,
           undefined, // signatureType
           undefined, // funderAddress

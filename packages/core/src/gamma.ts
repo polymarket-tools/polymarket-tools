@@ -4,37 +4,66 @@ import type {
   Market,
   MarketToken,
   RawMarket,
-  RawMarketToken,
+  Tag,
 } from './types';
 import { PolymarketError } from './types';
-import { sanitizeError } from './errors';
+import { fetchJson, DEFAULT_GAMMA_HOST } from './http';
 
-const DEFAULT_GAMMA_HOST = 'https://gamma-api.polymarket.com';
+// ── Helpers ─────────────────────────────────────────────────────
+
+/**
+ * Safely parse a JSON-encoded string array from the API.
+ * Returns an empty array if the input is falsy or not valid JSON.
+ */
+function parseJsonArray(value: string | undefined | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 // ── Normalizers ──────────────────────────────────────────────────
 
-export function normalizeToken(raw: RawMarketToken): MarketToken {
-  return {
-    tokenId: raw.token_id,
-    outcome: raw.outcome,
-    price: raw.price,
-  };
+/**
+ * Build MarketToken[] from the three JSON-encoded string arrays
+ * the Gamma API returns: outcomes, outcomePrices, clobTokenIds.
+ */
+export function buildTokens(raw: RawMarket): MarketToken[] {
+  const outcomes = parseJsonArray(raw.outcomes);
+  const prices = parseJsonArray(raw.outcomePrices);
+  const tokenIds = parseJsonArray(raw.clobTokenIds);
+
+  const length = Math.min(outcomes.length, prices.length, tokenIds.length);
+  const tokens: MarketToken[] = [];
+
+  for (let i = 0; i < length; i++) {
+    tokens.push({
+      tokenId: tokenIds[i],
+      outcome: outcomes[i],
+      price: parseFloat(prices[i]) || 0,
+    });
+  }
+
+  return tokens;
 }
 
 export function normalizeMarket(raw: RawMarket): Market {
   return {
-    conditionId: raw.condition_id,
+    conditionId: raw.conditionId,
     question: raw.question,
     slug: raw.slug,
     description: raw.description,
     active: raw.active,
     closed: raw.closed,
-    volume: raw.volume,
-    liquidity: raw.liquidity,
-    startDate: raw.start_date_iso,
-    endDate: raw.end_date_iso,
-    tokens: (raw.tokens ?? []).map(normalizeToken),
-    tags: raw.tags ?? [],
+    volume: parseFloat(raw.volume) || 0,
+    liquidity: parseFloat(raw.liquidity) || 0,
+    startDate: raw.startDate,
+    endDate: raw.endDate,
+    tokens: buildTokens(raw),
+    tags: (raw.tags ?? []).map((t: Tag) => t.label),
     image: raw.image,
     icon: raw.icon,
   };
@@ -65,7 +94,7 @@ export class GammaClient {
     if (params.tag !== undefined) searchParams.set('tag', params.tag);
 
     const url = `${this.host}/markets?${searchParams.toString()}`;
-    const data = await this.fetchJson<RawMarket[]>(url);
+    const data = await fetchJson<RawMarket[]>(url, 'Gamma API');
     return data.map(normalizeMarket);
   }
 
@@ -74,7 +103,7 @@ export class GammaClient {
    */
   async getMarket(conditionId: string): Promise<Market> {
     const url = `${this.host}/markets/${conditionId}`;
-    const data = await this.fetchJson<RawMarket>(url);
+    const data = await fetchJson<RawMarket>(url, 'Gamma API');
     return normalizeMarket(data);
   }
 
@@ -86,7 +115,7 @@ export class GammaClient {
     searchParams.set('slug', slug);
 
     const url = `${this.host}/markets?${searchParams.toString()}`;
-    const data = await this.fetchJson<RawMarket[]>(url);
+    const data = await fetchJson<RawMarket[]>(url, 'Gamma API');
 
     if (!data || data.length === 0) {
       throw new PolymarketError(
@@ -116,38 +145,16 @@ export class GammaClient {
 
     const qs = searchParams.toString();
     const url = qs ? `${this.host}/markets?${qs}` : `${this.host}/markets`;
-    const data = await this.fetchJson<RawMarket[]>(url);
+    const data = await fetchJson<RawMarket[]>(url, 'Gamma API');
     return data.map(normalizeMarket);
   }
 
   /**
    * Get all available market tags.
    */
-  async getTags(): Promise<string[]> {
+  async getTags(): Promise<Tag[]> {
     const url = `${this.host}/tags`;
-    return this.fetchJson<string[]>(url);
+    return fetchJson<Tag[]>(url, 'Gamma API');
   }
 
-  // ── Internal ─────────────────────────────────────────────────
-
-  private async fetchJson<T>(url: string): Promise<T> {
-    let response: Response;
-
-    try {
-      response = await fetch(url);
-    } catch (error) {
-      throw sanitizeError(error, 0, url);
-    }
-
-    if (!response.ok) {
-      const body = await response.text().catch(() => '');
-      throw sanitizeError(
-        new Error(`Gamma API error: ${response.status} ${response.statusText} - ${body}`),
-        response.status,
-        url,
-      );
-    }
-
-    return response.json() as Promise<T>;
-  }
 }
