@@ -23,6 +23,15 @@ import {
   cancelOrderExecute,
   getOpenOrdersExecute,
 } from './actions/trading';
+// Data operations
+import {
+  dataOperations,
+  dataFields,
+  getLeaderboardExecute,
+  getWalletPositionsExecute,
+  getWalletTradesExecute,
+  getMarketHoldersExecute,
+} from './actions/data';
 // Dynamic loading
 import { searchMarkets, getMarketTokens } from './methods/loadOptions';
 
@@ -54,6 +63,7 @@ export class Polymarket implements INodeType {
         type: 'options',
         noDataExpression: true,
         options: [
+          { name: 'Data', value: 'data' },
           { name: 'Market', value: 'market' },
           { name: 'Price', value: 'price' },
           { name: 'Trading', value: 'trading' },
@@ -61,10 +71,12 @@ export class Polymarket implements INodeType {
         default: 'market',
       },
       // Operation selectors (one per resource, shown conditionally)
+      dataOperations,
       marketOperations,
       priceOperations,
       tradingOperations,
       // All field definitions
+      ...dataFields,
       ...marketFields,
       ...priceFields,
       ...tradingFields,
@@ -88,7 +100,15 @@ export class Polymarket implements INodeType {
       try {
         let results: INodeExecutionData[];
 
-        if (resource === 'market' && operation === 'search') {
+        if (resource === 'data' && operation === 'getLeaderboard') {
+          results = await getLeaderboardExecute.call(this, i);
+        } else if (resource === 'data' && operation === 'getWalletPositions') {
+          results = await getWalletPositionsExecute.call(this, i);
+        } else if (resource === 'data' && operation === 'getWalletTrades') {
+          results = await getWalletTradesExecute.call(this, i);
+        } else if (resource === 'data' && operation === 'getMarketHolders') {
+          results = await getMarketHoldersExecute.call(this, i);
+        } else if (resource === 'market' && operation === 'search') {
           results = await searchMarketExecute.call(this, i);
         } else if (resource === 'market' && operation === 'get') {
           results = await getMarketExecute.call(this, i);
