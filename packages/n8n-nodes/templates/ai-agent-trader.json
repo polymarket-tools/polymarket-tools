@@ -33,7 +33,7 @@
       },
       "id": "3c4d5e6f-7a8b-4c9d-0e1f-2a3b4c5d6e7f",
       "name": "Search Markets",
-      "type": "n8n-nodes-polymarket.polymarket",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
       "typeVersion": 1,
       "position": [490, 520],
       "credentials": {
@@ -52,7 +52,7 @@
       },
       "id": "4d5e6f7a-8b9c-4d0e-1f2a-3b4c5d6e7f8a",
       "name": "Get Price",
-      "type": "n8n-nodes-polymarket.polymarket",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
       "typeVersion": 1,
       "position": [740, 520],
       "credentials": {
@@ -75,7 +75,7 @@
       },
       "id": "5e6f7a8b-9c0d-4e1f-2a3b-4c5d6e7f8a9b",
       "name": "Place Order",
-      "type": "n8n-nodes-polymarket.polymarket",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
       "typeVersion": 1,
       "position": [990, 520],
       "credentials": {

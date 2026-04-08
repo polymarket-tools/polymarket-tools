@@ -25,7 +25,7 @@
       },
       "id": "1e2f3a4b-5c6d-4e7f-8a9b-0c1d2e3f4a5b",
       "name": "Get Positions",
-      "type": "n8n-nodes-polymarket.polymarket",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
       "typeVersion": 1,
       "position": [490, 300],
       "credentials": {

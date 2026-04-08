@@ -1,5 +1,5 @@
 {
-  "name": "n8n-nodes-polymarket",
+  "name": "n8n-nodes-polymarket-tools",
   "version": "0.1.0",
   "description": "Polymarket nodes for n8n workflow automation",
   "license": "MIT",
@@ -28,7 +28,7 @@
     ]
   },
   "dependencies": {
-    "@polymarket-tools/core": "workspace:*"
+    "@polymarket-tools/core": "^0.0.1"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

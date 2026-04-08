@@ -9,7 +9,7 @@
       },
       "id": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b",
       "name": "Polymarket Trigger",
-      "type": "n8n-nodes-polymarket.polymarketTrigger",
+      "type": "n8n-nodes-polymarket-tools.polymarketTrigger",
       "typeVersion": 1,
       "position": [240, 300]
     },

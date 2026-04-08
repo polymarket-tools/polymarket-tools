@@ -1,5 +1,5 @@
 {
-  "node": "n8n-nodes-polymarket.polymarketTrigger",
+  "node": "n8n-nodes-polymarket-tools.polymarketTrigger",
   "nodeVersion": "1.0",
   "codexVersion": "1.0",
   "categories": ["Finance & Payments"],

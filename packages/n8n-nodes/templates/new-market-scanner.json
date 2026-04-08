@@ -8,7 +8,7 @@
       },
       "id": "6f7a8b9c-0d1e-4f2a-3b4c-5d6e7f8a9b0c",
       "name": "New Market Trigger",
-      "type": "n8n-nodes-polymarket.polymarketTrigger",
+      "type": "n8n-nodes-polymarket-tools.polymarketTrigger",
       "typeVersion": 1,
       "position": [240, 300]
     },
