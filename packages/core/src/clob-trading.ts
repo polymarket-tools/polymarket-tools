@@ -1,5 +1,5 @@
 import { ClobClient, Chain } from '@polymarket/clob-client';
-import type { ClobTradingConfig, PlaceOrderParams, Order, Position, OrderSide } from './types';
+import type { ClobTradingConfig, PlaceOrderParams, Order, OrderSide } from './types';
 import { sanitizeError } from './errors';
 
 // Dynamic imports for viem to avoid TypeScript crawling into ox/webauthn .ts sources
@@ -202,20 +202,6 @@ export class ClobTradingClient {
     } catch (error) {
       throw sanitizeError(error, 0, 'getOpenOrders');
     }
-  }
-
-  /**
-   * Get positions. Uses the data API at data-api.polymarket.com.
-   * NOTE: The @polymarket/clob-client SDK does not have a getPositions method.
-   * This would need to call the data API directly. Placeholder for now.
-   */
-  async getPositions(): Promise<Position[]> {
-    // The CLOB SDK doesn't expose positions -- they live at data-api.polymarket.com/positions
-    throw sanitizeError(
-      new Error('getPositions is not yet implemented. The CLOB SDK does not support positions; this requires the Polymarket Data API.'),
-      501,
-      'getPositions',
-    );
   }
 
   /**
