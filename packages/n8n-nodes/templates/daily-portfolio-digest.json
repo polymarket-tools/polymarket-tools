@@ -1,0 +1,120 @@
+{
+  "name": "Daily Polymarket Portfolio P&L Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Daily Portfolio P&L Digest\n\nSends a morning summary of your Polymarket wallet positions and profit/loss.\n\n**Setup:**\n1. Enter your Polymarket wallet address in the \"Get Wallet Positions\" node\n2. Configure Telegram (or swap for Slack/Email) credentials\n3. Adjust the schedule time (default: 9am daily)\n\n**How it works:**\n- Fetches all open positions for your wallet at 9am\n- Calculates total portfolio value, per-position P&L, and identifies top gainers/losers\n- Formats a clean digest and sends it to Telegram\n\n**Note:** There is no dedicated wallet value endpoint, so total value is computed from position data."
+      },
+      "id": "d4e5f6a7-4444-4d00-e000-000000000001",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [240, 80]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "d4e5f6a7-4444-4d00-e000-000000000002",
+      "name": "Every Day at 9am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 340]
+    },
+    {
+      "parameters": {
+        "resource": "data",
+        "operation": "getWalletPositions",
+        "walletAddress": "",
+        "market": ""
+      },
+      "id": "d4e5f6a7-4444-4d00-e000-000000000003",
+      "name": "Get Wallet Positions",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [490, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate P&L summary from wallet positions\nconst positions = $input.all();\nconst now = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\n\nif (positions.length === 0 || !positions[0].json.market) {\n  return [{\n    json: {\n      digest: `Portfolio Digest -- ${now}\\n\\nNo open positions found.`\n    }\n  }];\n}\n\nlet totalValue = 0;\nlet totalCost = 0;\nconst posDetails = [];\n\nfor (const item of positions) {\n  const p = item.json;\n  const size = Number(p.size || p.amount || 0);\n  const avgPrice = Number(p.avgPrice || p.averagePrice || p.price || 0);\n  const currentPrice = Number(p.currentPrice || p.curPrice || avgPrice);\n  const value = size * currentPrice;\n  const cost = size * avgPrice;\n  const pnl = value - cost;\n  const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0;\n\n  totalValue += value;\n  totalCost += cost;\n\n  posDetails.push({\n    market: p.market || p.question || p.title || 'Unknown',\n    outcome: p.outcome || 'N/A',\n    size,\n    avgPrice,\n    currentPrice,\n    value,\n    pnl,\n    pnlPct\n  });\n}\n\n// Sort by P&L for top gainers/losers\nconst sorted = [...posDetails].sort((a, b) => b.pnl - a.pnl);\nconst topGainers = sorted.filter(p => p.pnl > 0).slice(0, 3);\nconst topLosers = sorted.filter(p => p.pnl < 0).slice(-3).reverse();\n\nconst totalPnl = totalValue - totalCost;\nconst totalPnlPct = totalCost > 0 ? (totalPnl / totalCost * 100).toFixed(1) : '0.0';\n\nlet digest = `Portfolio Digest -- ${now}\\n\\n`;\ndigest += `Total Value: $${totalValue.toFixed(2)}\\n`;\ndigest += `Total P&L: ${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(2)} (${totalPnlPct}%)\\n`;\ndigest += `Open Positions: ${posDetails.length}\\n`;\ndigest += `\\n---\\n`;\n\nif (topGainers.length > 0) {\n  digest += `\\nTop Gainers:\\n`;\n  for (const g of topGainers) {\n    digest += `  +$${g.pnl.toFixed(2)} (${g.pnlPct.toFixed(1)}%) -- ${g.market} [${g.outcome}]\\n`;\n  }\n}\n\nif (topLosers.length > 0) {\n  digest += `\\nTop Losers:\\n`;\n  for (const l of topLosers) {\n    digest += `  -$${Math.abs(l.pnl).toFixed(2)} (${l.pnlPct.toFixed(1)}%) -- ${l.market} [${l.outcome}]\\n`;\n  }\n}\n\ndigest += `\\n---\\nAll Positions:\\n`;\nfor (const p of posDetails) {\n  const arrow = p.pnl >= 0 ? '+' : '';\n  digest += `  ${p.market} [${p.outcome}]: ${p.size} shares @ $${p.currentPrice.toFixed(3)} | P&L: ${arrow}$${p.pnl.toFixed(2)}\\n`;\n}\n\nreturn [{ json: { digest } }];"
+      },
+      "id": "d4e5f6a7-4444-4d00-e000-000000000004",
+      "name": "Calculate P&L Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 340]
+    },
+    {
+      "parameters": {
+        "chatId": "",
+        "text": "={{ $json.digest }}",
+        "additionalFields": {}
+      },
+      "id": "d4e5f6a7-4444-4d00-e000-000000000005",
+      "name": "Send Morning Digest",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [990, 340],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Day at 9am": {
+      "main": [
+        [
+          {
+            "node": "Get Wallet Positions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Wallet Positions": {
+      "main": [
+        [
+          {
+            "node": "Calculate P&L Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate P&L Summary": {
+      "main": [
+        [
+          {
+            "node": "Send Morning Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "prediction-markets" },
+    { "name": "portfolio" },
+    { "name": "telegram" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}

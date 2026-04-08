@@ -1,0 +1,209 @@
+{
+  "name": "Polymarket Smart Money Radar -- Whale Trade Alerts to Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Smart Money Radar -- Whale Trade Alerts\n\nMonitors the Polymarket leaderboard for top traders, checks their recent trades, and sends whale alerts to Telegram.\n\n**Setup:**\n1. Configure the Telegram node with your bot token and chat ID\n2. Adjust the schedule interval (default: every 30 min)\n3. Tweak the leaderboard size and trade recency filter in the Code nodes\n\n**How it works:**\n- Fetches top 10 traders from this week's leaderboard\n- Extracts wallet addresses and queries each trader's recent trades\n- Filters for trades made in the last 30 minutes\n- Formats whale alerts and sends them to Telegram"
+      },
+      "id": "a1b2c3d4-1111-4a00-b000-000000000001",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [240, 80]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-1111-4a00-b000-000000000002",
+      "name": "Every 30 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 340]
+    },
+    {
+      "parameters": {
+        "resource": "data",
+        "operation": "getLeaderboard",
+        "timePeriod": "week",
+        "limit": 10
+      },
+      "id": "a1b2c3d4-1111-4a00-b000-000000000003",
+      "name": "Get Leaderboard",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [490, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract wallet addresses from leaderboard entries\nconst leaders = $input.all();\nconst wallets = leaders.map(item => ({\n  json: {\n    walletAddress: item.json.walletAddress || item.json.address || item.json.wallet,\n    userName: item.json.userName || item.json.username || item.json.name || 'Unknown',\n    rank: item.json.rank || 0,\n    profit: item.json.profit || item.json.pnl || 0\n  }\n}));\n\nreturn wallets.filter(w => w.json.walletAddress);"
+      },
+      "id": "a1b2c3d4-1111-4a00-b000-000000000004",
+      "name": "Extract Wallet Addresses",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 340]
+    },
+    {
+      "parameters": {
+        "resource": "data",
+        "operation": "getWalletTrades",
+        "walletAddress": "={{ $json.walletAddress }}",
+        "limit": 5
+      },
+      "id": "a1b2c3d4-1111-4a00-b000-000000000005",
+      "name": "Get Wallet Trades",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [990, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter trades from the last 30 minutes and format whale alerts\nconst trades = $input.all();\nconst thirtyMinAgo = Date.now() - (30 * 60 * 1000);\nconst alerts = [];\n\nfor (const item of trades) {\n  const t = item.json;\n  const tradeTime = new Date(t.timestamp || t.createdAt || 0).getTime();\n\n  if (tradeTime > thirtyMinAgo) {\n    const side = (t.side || t.type || 'UNKNOWN').toUpperCase();\n    const price = Number(t.price || 0).toFixed(2);\n    const size = Number(t.size || t.amount || 0).toFixed(2);\n    const market = t.market || t.question || t.conditionId || 'Unknown market';\n    const userName = t.userName || 'Whale';\n\n    alerts.push({\n      json: {\n        message: `Whale ${userName} just ${side === 'BUY' ? 'bought' : 'sold'} ${market} -- ${size} shares at $${price}`,\n        side,\n        price,\n        size,\n        market,\n        userName,\n        timestamp: t.timestamp || t.createdAt\n      }\n    });\n  }\n}\n\n// If no recent trades, return empty to skip Telegram\nif (alerts.length === 0) {\n  return [{ json: { _skip: true } }];\n}\n\nreturn alerts;"
+      },
+      "id": "a1b2c3d4-1111-4a00-b000-000000000006",
+      "name": "Filter Recent & Format Alerts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 340]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "whale-filter-001",
+              "leftValue": "={{ $json._skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notTrue"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-1111-4a00-b000-000000000007",
+      "name": "Has Alerts?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [1490, 340]
+    },
+    {
+      "parameters": {
+        "chatId": "",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "a1b2c3d4-1111-4a00-b000-000000000008",
+      "name": "Send Telegram Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1740, 280],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 30 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Get Leaderboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Leaderboard": {
+      "main": [
+        [
+          {
+            "node": "Extract Wallet Addresses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Wallet Addresses": {
+      "main": [
+        [
+          {
+            "node": "Get Wallet Trades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Wallet Trades": {
+      "main": [
+        [
+          {
+            "node": "Filter Recent & Format Alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Recent & Format Alerts": {
+      "main": [
+        [
+          {
+            "node": "Has Alerts?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Alerts?": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "prediction-markets" },
+    { "name": "telegram" },
+    { "name": "whale-tracking" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}

@@ -1,0 +1,167 @@
+{
+  "name": "Polymarket Resolution Watcher",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Resolution Watcher -- Markets Closing Soon\n\nMonitors Polymarket for markets approaching resolution and alerts when new markets enter the 24-hour countdown.\n\n**Setup:**\n1. Configure Telegram or Slack credentials\n2. Adjust the search query to focus on topics you care about, or leave broad\n3. Modify the time window in the Code node (default: 24 hours)\n\n**How it works:**\n- Searches active markets every 2 hours\n- Filters for markets with endDate/expirationDate within the next 24 hours\n- Compares against previous run's list (stored in workflow static data) to find newly closing markets\n- Sends alerts only for markets that just entered the resolution window"
+      },
+      "id": "e5f6a7b8-5555-4e00-f000-000000000001",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [240, 80]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "e5f6a7b8-5555-4e00-f000-000000000002",
+      "name": "Every 2 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 340]
+    },
+    {
+      "parameters": {
+        "resource": "market",
+        "operation": "search",
+        "query": "politics",
+        "filters": {
+          "active": true,
+          "limit": 100
+        }
+      },
+      "id": "e5f6a7b8-5555-4e00-f000-000000000003",
+      "name": "Search Active Markets",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [490, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter for markets closing within 24 hours and detect newly closing ones\nconst markets = $input.all();\nconst now = Date.now();\nconst WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours\nconst cutoff = now + WINDOW_MS;\n\n// Access workflow static data to track previously seen closing markets\nconst staticData = $getWorkflowStaticData('global');\nconst previouslyClosing = new Set(staticData.closingMarketIds || []);\n\n// Find markets closing within the window\nconst closingSoon = [];\nfor (const item of markets) {\n  const m = item.json;\n  const endDate = m.endDate || m.expirationDate || m.endDateIso || m.end_date_iso;\n  if (!endDate) continue;\n\n  const endTime = new Date(endDate).getTime();\n  if (isNaN(endTime)) continue;\n\n  // Market must be closing in the future but within our window\n  if (endTime > now && endTime <= cutoff) {\n    // Parse current prices\n    let outcomePrices = m.outcomePrices || [];\n    if (typeof outcomePrices === 'string') {\n      try { outcomePrices = JSON.parse(outcomePrices); } catch(e) { outcomePrices = []; }\n    }\n\n    let outcomes = m.outcomes || [];\n    if (typeof outcomes === 'string') {\n      try { outcomes = JSON.parse(outcomes); } catch(e) { outcomes = []; }\n    }\n\n    const hoursLeft = ((endTime - now) / (60 * 60 * 1000)).toFixed(1);\n    const yesPrice = Number(outcomePrices[0] || 0).toFixed(3);\n\n    closingSoon.push({\n      conditionId: m.conditionId || '',\n      question: m.question || 'Unknown',\n      slug: m.slug || '',\n      endDate,\n      hoursLeft,\n      yesPrice,\n      volume: Number(m.volume || 0)\n    });\n  }\n}\n\n// Find markets that are NEW to the closing window\nconst currentClosingIds = new Set(closingSoon.map(m => m.conditionId));\nconst newlyClosing = closingSoon.filter(m => !previouslyClosing.has(m.conditionId));\n\n// Update static data for next run\nstaticData.closingMarketIds = Array.from(currentClosingIds);\n\nif (newlyClosing.length === 0) {\n  return [{ json: { _noNew: true } }];\n}\n\n// Format alert message\nlet message = `Markets resolving within 24 hours:\\n\\n`;\nfor (const m of newlyClosing) {\n  message += `${m.question}\\n  YES: $${m.yesPrice} | ${m.hoursLeft}h left | Vol: $${Number(m.volume).toLocaleString()}\\n  https://polymarket.com/event/${m.slug}\\n\\n`;\n}\nmessage += `${newlyClosing.length} market(s) entering resolution window.`;\n\nreturn [{\n  json: {\n    message,\n    count: newlyClosing.length,\n    markets: newlyClosing,\n    _noNew: false\n  }\n}];"
+      },
+      "id": "e5f6a7b8-5555-4e00-f000-000000000004",
+      "name": "Filter Closing Soon & Detect New",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 340]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "new-closing-check-001",
+              "leftValue": "={{ $json._noNew }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notTrue"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e5f6a7b8-5555-4e00-f000-000000000005",
+      "name": "New Closings Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [990, 340]
+    },
+    {
+      "parameters": {
+        "chatId": "",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "e5f6a7b8-5555-4e00-f000-000000000006",
+      "name": "Send Resolution Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1240, 280],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 2 Hours": {
+      "main": [
+        [
+          {
+            "node": "Search Active Markets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Active Markets": {
+      "main": [
+        [
+          {
+            "node": "Filter Closing Soon & Detect New",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Closing Soon & Detect New": {
+      "main": [
+        [
+          {
+            "node": "New Closings Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New Closings Found?": {
+      "main": [
+        [
+          {
+            "node": "Send Resolution Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "prediction-markets" },
+    { "name": "resolution" },
+    { "name": "telegram" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}

@@ -6,13 +6,12 @@ export const getLeaderboardFields: INodeProperties[] = [
     displayName: 'Time Period',
     name: 'timePeriod',
     type: 'options',
-    default: '7d',
-    description:
-      'Get top Polymarket traders ranked by profit. Returns wallet address, username, volume, and P&L.',
+    default: 'all',
+    description: 'Time period for the leaderboard ranking',
     options: [
-      { name: '1 Day', value: '1d' },
-      { name: '7 Days', value: '7d' },
-      { name: '30 Days', value: '30d' },
+      { name: 'Today', value: 'day' },
+      { name: 'This Week', value: 'week' },
+      { name: 'This Month', value: 'month' },
       { name: 'All Time', value: 'all' },
     ],
     displayOptions: {
