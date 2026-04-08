@@ -103,7 +103,6 @@ function createMockContext(
       apiSecret: 'test-secret',
       apiPassphrase: 'test-pass',
       privateKey: '0xabc',
-      builderCode: '',
     }),
     getNode: () => ({ name: 'Polymarket', type: 'polymarket' }),
     continueOnFail: () => false,
@@ -219,7 +218,7 @@ describe('Polymarket.node execute()', () => {
       apiSecret: 'test-secret',
       apiPassphrase: 'test-pass',
       privateKey: '0xabc',
-      builderCode: undefined,
+      builderSignerUrl: expect.stringContaining('polymarket-builder-signer'),
     });
 
     expect(mockPlaceOrder).toHaveBeenCalledWith({

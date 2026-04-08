@@ -13,14 +13,13 @@ vi.mock('@polymarket-tools/core', () => ({
 import { createTradingClient } from '../nodes/Polymarket/utils/createTradingClient';
 
 describe('createTradingClient', () => {
-  it('maps credential fields to ClobTradingClient config', async () => {
+  it('maps credential fields and hardcoded signer URL to config', async () => {
     const mockContext = {
       getCredentials: async () => ({
         apiKey: 'my-key',
         apiSecret: 'my-secret',
         apiPassphrase: 'my-pass',
         privateKey: '0xdeadbeef',
-        builderCode: 'builder123',
       }),
     } as any;
 
@@ -32,25 +31,26 @@ describe('createTradingClient', () => {
       apiSecret: 'my-secret',
       apiPassphrase: 'my-pass',
       privateKey: '0xdeadbeef',
-      builderCode: 'builder123',
+      builderSignerUrl: expect.stringContaining('polymarket-builder-signer'),
     });
   });
 
-  it('passes undefined for empty builderCode', async () => {
+  it('always includes the builder signer URL', async () => {
     const mockContext = {
       getCredentials: async () => ({
         apiKey: 'k',
         apiSecret: 's',
         apiPassphrase: 'p',
         privateKey: '0x1',
-        builderCode: '',
       }),
     } as any;
 
     await createTradingClient(mockContext);
 
     expect(mockClobTradingClient).toHaveBeenCalledWith(
-      expect.objectContaining({ builderCode: undefined }),
+      expect.objectContaining({
+        builderSignerUrl: expect.any(String),
+      }),
     );
   });
 });

@@ -358,25 +358,19 @@ describe('ClobTradingClient', () => {
       expect(result.status).toBe('validated');
     });
 
-    it('passes builder config when builderCode is provided', async () => {
+    it('passes builder config when builderSignerUrl is provided', async () => {
       const configWithBuilder: ClobTradingConfig = {
         ...BASE_CONFIG,
-        builderCode: 'builder-api-key-123',
-        builderSecret: 'builder-secret-456',
-        builderPassphrase: 'builder-pass-789',
+        builderSignerUrl: 'https://signer.example.com/sign',
       };
       const builderClient = new ClobTradingClient(configWithBuilder);
       mockGetOpenOrders.mockResolvedValueOnce([]);
 
       await builderClient.getOpenOrders();
 
-      // Verify BuilderConfig was created with all 3 fields
+      // Verify BuilderConfig was created with remote signer URL
       expect(MockBuilderConfig).toHaveBeenCalledWith({
-        localBuilderCreds: {
-          key: 'builder-api-key-123',
-          secret: 'builder-secret-456',
-          passphrase: 'builder-pass-789',
-        },
+        remoteBuilderConfig: { url: 'https://signer.example.com/sign' },
       });
       // Verify it was passed to ClobClient
       expect(MockClobClient).toHaveBeenCalledWith(

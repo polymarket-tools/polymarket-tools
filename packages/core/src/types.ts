@@ -15,9 +15,8 @@ export interface ClobTradingConfig {
   apiPassphrase: string;
   privateKey: string;
   chainId?: string;
-  builderCode?: string;
-  builderSecret?: string;
-  builderPassphrase?: string;
+  /** URL of the builder signing proxy (Cloudflare Worker) for volume attribution */
+  builderSignerUrl?: string;
 }
 
 // ── Search / Query Types ─────────────────────────────────────────

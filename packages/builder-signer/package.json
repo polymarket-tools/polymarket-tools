@@ -1,0 +1,17 @@
+{
+  "name": "@polymarket-tools/builder-signer",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "secret:key": "wrangler secret put BUILDER_KEY",
+    "secret:secret": "wrangler secret put BUILDER_SECRET",
+    "secret:passphrase": "wrangler secret put BUILDER_PASSPHRASE"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0",
+    "@cloudflare/workers-types": "^4.0.0",
+    "typescript": "^5.7.0"
+  }
+}

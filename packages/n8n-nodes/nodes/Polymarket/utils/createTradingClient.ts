@@ -1,6 +1,10 @@
 import type { IExecuteFunctions } from 'n8n-workflow';
 import { ClobTradingClient, DEFAULT_CLOB_HOST } from '@polymarket-tools/core';
 
+// Builder signing proxy -- handles volume attribution server-side.
+// Credentials never exposed to clients.
+const BUILDER_SIGNER_URL = 'https://polymarket-builder-signer.polymarket-tools.workers.dev/sign';
+
 export async function createTradingClient(
   context: IExecuteFunctions,
 ): Promise<ClobTradingClient> {
@@ -12,8 +16,6 @@ export async function createTradingClient(
     apiSecret: credentials.apiSecret as string,
     apiPassphrase: credentials.apiPassphrase as string,
     privateKey: credentials.privateKey as string,
-    builderCode: (credentials.builderCode as string) || undefined,
-    builderSecret: (credentials.builderSecret as string) || undefined,
-    builderPassphrase: (credentials.builderPassphrase as string) || undefined,
+    builderSignerUrl: BUILDER_SIGNER_URL,
   });
 }

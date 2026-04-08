@@ -65,19 +65,15 @@ export function normalizeOpenOrder(raw: {
 }
 
 /**
- * Dynamically load @polymarket/builder-signing-sdk and create a BuilderConfig.
- * We import dynamically to avoid TypeScript module resolution issues since
- * the package is a transitive dependency of @polymarket/clob-client.
+ * Create a BuilderConfig using the remote signer pattern.
+ * The signing proxy holds the builder credentials server-side.
+ * The SDK calls the URL to get signed headers at trade time.
  */
-async function createBuilderConfig(
-  key: string,
-  secret: string,
-  passphrase: string,
-): Promise<unknown> {
+async function createBuilderConfig(signerUrl: string): Promise<unknown> {
   const mod = await import('@polymarket/builder-signing-sdk');
   const { BuilderConfig } = mod as any;
   return new BuilderConfig({
-    localBuilderCreds: { key, secret, passphrase },
+    remoteBuilderConfig: { url: signerUrl },
   });
 }
 
@@ -262,15 +258,11 @@ export class ClobTradingClient {
       passphrase: this.config.apiPassphrase,
     };
 
-    // Build builder config if a builder code (builder API key) is provided.
-    // The SDK's BuilderConfig takes localBuilderCreds { key, secret, passphrase }.
+    // Use remote builder signing proxy for volume attribution.
+    // The proxy holds builder credentials server-side.
     let builderConfig: unknown;
-    if (this.config.builderCode && this.config.builderSecret && this.config.builderPassphrase) {
-      builderConfig = await createBuilderConfig(
-        this.config.builderCode,
-        this.config.builderSecret,
-        this.config.builderPassphrase,
-      );
+    if (this.config.builderSignerUrl) {
+      builderConfig = await createBuilderConfig(this.config.builderSignerUrl);
     }
 
     let lastError: unknown;
