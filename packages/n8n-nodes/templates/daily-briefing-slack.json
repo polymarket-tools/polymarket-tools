@@ -1,0 +1,120 @@
+{
+  "name": "Daily Polymarket Briefing to Slack",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Every Day at 9am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "resource": "market",
+        "operation": "search",
+        "query": "trending",
+        "filters": {
+          "active": true,
+          "limit": 10
+        }
+      },
+      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      "name": "Search Trending Markets",
+      "type": "n8n-nodes-polymarket.polymarket",
+      "typeVersion": 1,
+      "position": [490, 300],
+      "credentials": {
+        "polymarketApi": {
+          "id": "",
+          "name": "Polymarket API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const markets = $input.all();\n\nlet markdown = '## Daily Polymarket Briefing\\n\\n';\nmarkdown += '| Market | Yes | No | Volume |\\n';\nmarkdown += '|--------|-----|-----|--------|\\n';\n\nfor (const item of markets) {\n  const m = item.json;\n  const question = m.question || 'Unknown';\n  const tokens = m.tokens || [];\n  const yesToken = tokens.find(t => t.outcome === 'Yes');\n  const noToken = tokens.find(t => t.outcome === 'No');\n  const yesPrice = yesToken ? `$${Number(yesToken.price).toFixed(2)}` : 'N/A';\n  const noPrice = noToken ? `$${Number(noToken.price).toFixed(2)}` : 'N/A';\n  const volume = m.volume ? `$${Number(m.volume).toLocaleString()}` : 'N/A';\n  markdown += `| ${question.substring(0, 60)} | ${yesPrice} | ${noPrice} | ${volume} |\\n`;\n}\n\nmarkdown += `\\n_Generated at ${new Date().toLocaleString()}_`;\n\nreturn [{ json: { markdown } }];"
+      },
+      "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+      "name": "Format as Markdown",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "channel": "#polymarket",
+        "text": "={{ $json.markdown }}",
+        "otherOptions": {}
+      },
+      "id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a",
+      "name": "Post to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [990, 300],
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "",
+          "name": "Slack OAuth2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Day at 9am": {
+      "main": [
+        [
+          {
+            "node": "Search Trending Markets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Trending Markets": {
+      "main": [
+        [
+          {
+            "node": "Format as Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format as Markdown": {
+      "main": [
+        [
+          {
+            "node": "Post to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "prediction-markets" },
+    { "name": "slack" },
+    { "name": "daily-briefing" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}

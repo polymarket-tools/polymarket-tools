@@ -1,0 +1,128 @@
+{
+  "name": "Polymarket Portfolio Tracker to Google Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "0d1e2f3a-4b5c-4d6e-7f8a-9b0c1d2e3f4a",
+      "name": "Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "resource": "trading",
+        "operation": "getPositions"
+      },
+      "id": "1e2f3a4b-5c6d-4e7f-8a9b-0c1d2e3f4a5b",
+      "name": "Get Positions",
+      "type": "n8n-nodes-polymarket.polymarket",
+      "typeVersion": 1,
+      "position": [490, 300],
+      "credentials": {
+        "polymarketApi": {
+          "id": "",
+          "name": "Polymarket API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const positions = $input.all();\nconst timestamp = new Date().toISOString();\n\nlet totalValue = 0;\nconst rows = [];\n\nfor (const item of positions) {\n  const p = item.json;\n  const size = Number(p.size || 0);\n  const avgPrice = Number(p.avgPrice || p.price || 0);\n  const currentPrice = Number(p.currentPrice || p.price || 0);\n  const value = size * currentPrice;\n  const cost = size * avgPrice;\n  const pnl = value - cost;\n  const pnlPct = cost > 0 ? ((pnl / cost) * 100).toFixed(2) : '0.00';\n\n  totalValue += value;\n\n  rows.push({\n    timestamp,\n    market: p.market || p.tokenId || 'Unknown',\n    outcome: p.outcome || 'N/A',\n    size,\n    avgPrice: avgPrice.toFixed(4),\n    currentPrice: currentPrice.toFixed(4),\n    value: value.toFixed(2),\n    pnl: pnl.toFixed(2),\n    pnlPercent: pnlPct,\n    totalPortfolioValue: totalValue.toFixed(2)\n  });\n}\n\nif (rows.length === 0) {\n  rows.push({\n    timestamp,\n    market: 'No positions',\n    outcome: '',\n    size: 0,\n    avgPrice: '0',\n    currentPrice: '0',\n    value: '0',\n    pnl: '0',\n    pnlPercent: '0',\n    totalPortfolioValue: '0'\n  });\n}\n\nreturn rows.map(r => ({ json: r }));"
+      },
+      "id": "2f3a4b5c-6d7e-4f8a-9b0c-1d2e3f4a5b6c",
+      "name": "Calculate P&L",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      },
+      "id": "3a4b5c6d-7e8f-4a9b-0c1d-2e3f4a5b6c7d",
+      "name": "Append to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [990, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Hour": {
+      "main": [
+        [
+          {
+            "node": "Get Positions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Positions": {
+      "main": [
+        [
+          {
+            "node": "Calculate P&L",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate P&L": {
+      "main": [
+        [
+          {
+            "node": "Append to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "prediction-markets" },
+    { "name": "google-sheets" },
+    { "name": "portfolio" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}

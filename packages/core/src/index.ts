@@ -26,3 +26,5 @@ export { sanitizeError } from './errors';
 
 // Clients
 export { GammaClient, normalizeMarket, normalizeToken } from './gamma';
+export { ClobPublicClient } from './clob-public';
+export { ClobTradingClient } from './clob-trading';

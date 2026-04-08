@@ -1,0 +1,123 @@
+{
+  "name": "New Polymarket Market Scanner",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerWhen": "newMarket",
+        "tag": "Politics"
+      },
+      "id": "6f7a8b9c-0d1e-4f2a-3b4c-5d6e7f8a9b0c",
+      "name": "New Market Trigger",
+      "type": "n8n-nodes-polymarket.polymarketTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "a1b2c3d4-filter-condition-001",
+              "leftValue": "={{ $json.volume }}",
+              "rightValue": 1000,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7a8b9c0d-1e2f-4a3b-4c5d-6e7f8a9b0c1d",
+      "name": "Volume > 1000",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [490, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const m = $input.first().json;\n\nconst tokens = m.tokens || [];\nconst tokenLines = tokens.map(t => `  ${t.outcome}: $${Number(t.price).toFixed(2)}`).join('\\n');\n\nconst text = `*New Polymarket Market*\\n\\n*${m.question}*\\n\\nVolume: $${Number(m.volume).toLocaleString()}\\nPrices:\\n${tokenLines}\\n\\nSlug: ${m.slug}`;\n\nreturn [{ json: { text } }];"
+      },
+      "id": "8b9c0d1e-2f3a-4b4c-5d6e-7f8a9b0c1d2e",
+      "name": "Format Market Details",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "channel": "#polymarket",
+        "text": "={{ $json.text }}",
+        "otherOptions": {}
+      },
+      "id": "9c0d1e2f-3a4b-4c5d-6e7f-8a9b0c1d2e3f",
+      "name": "Post to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [990, 300],
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "",
+          "name": "Slack OAuth2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "New Market Trigger": {
+      "main": [
+        [
+          {
+            "node": "Volume > 1000",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Volume > 1000": {
+      "main": [
+        [
+          {
+            "node": "Format Market Details",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Format Market Details": {
+      "main": [
+        [
+          {
+            "node": "Post to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "prediction-markets" },
+    { "name": "slack" },
+    { "name": "scanner" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}

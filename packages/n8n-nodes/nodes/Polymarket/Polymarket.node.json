@@ -1,0 +1,11 @@
+{
+  "node": "n8n-nodes-polymarket.polymarket",
+  "nodeVersion": "1.0",
+  "codexVersion": "1.0",
+  "categories": ["Finance & Payments"],
+  "resources": {
+    "primaryDocumentation": [
+      { "url": "https://github.com/polymarket-tools/polymarket-tools" }
+    ]
+  }
+}
