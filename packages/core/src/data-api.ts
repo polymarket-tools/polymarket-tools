@@ -52,11 +52,9 @@ export function normalizeWalletTrade(raw: RawWalletTrade): WalletTrade {
 }
 
 export function normalizeMarketHolder(raw: { proxyWallet: string; amount: number }): MarketHolder {
-  // The holders API does not return avgPrice — it's not in the real response
   return {
     wallet: raw.proxyWallet,
     size: raw.amount,
-    avgPrice: 0,
   };
 }
 

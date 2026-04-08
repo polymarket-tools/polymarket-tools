@@ -137,7 +137,6 @@ describe('normalizeMarketHolder', () => {
     expect(result).toEqual({
       wallet: '0x89b5cdaaa4866c1e738406712012a630b4078beb',
       size: 3792.136359,
-      avgPrice: 0,
     });
   });
 

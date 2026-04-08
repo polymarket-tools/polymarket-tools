@@ -35,6 +35,10 @@ n8n-nodes-polymarket-tools
 | **Trading** | Place Order | EIP-712 signed limit orders with GTC/GTD/FOK/FAK |
 | **Trading** | Cancel Order | Cancel an open order by ID |
 | **Trading** | Get Open Orders | List all open orders with optional market filter |
+| **Data** | Get Leaderboard | Top traders ranked by profit (day/week/month/all) |
+| **Data** | Get Wallet Positions | Any wallet's open positions with P&L |
+| **Data** | Get Wallet Trades | Trade history for any wallet |
+| **Data** | Get Market Holders | Top holders of any prediction market |
 
 ### Polymarket Trigger (Polling Node)
 
@@ -53,9 +57,11 @@ n8n-nodes-polymarket-tools
 | Place orders | Yes (EIP-712 signed) | "Coming Soon" error |
 | Cancel orders | Yes | No |
 | Polling triggers | Yes (3 modes) | Broken (in-memory state) |
+| Whale tracking / leaderboard | Yes (Data API) | No |
+| Wallet position/trade lookup | Yes (public, no auth) | No |
 | AI agent support | Yes (`usableAsTool`) | No |
 | Dynamic dropdowns | Yes (`loadOptionsMethod`) | No |
-| Workflow templates | 5 included | None |
+| Workflow templates | 5 demand-backed | None |
 | Credential testing | Yes | Collects but never sends |
 | Active maintenance | Yes | Last updated Jan 2026 |
 
@@ -71,13 +77,13 @@ This is the **first trading node in the n8n ecosystem with AI agent support**.
 
 ## Workflow Templates
 
-Import ready-to-use templates:
+5 demand-backed templates built on what Polymarket traders actually use and pay for:
 
-1. **Daily Polymarket Briefing to Slack** -- Automated morning market summary
-2. **Price Alert to Telegram** -- Real-time threshold notifications
-3. **AI Agent Polymarket Trader** -- LLM-powered market analysis and trading
-4. **New Market Scanner** -- Category-filtered new market discovery
-5. **Portfolio Tracker to Google Sheets** -- Hourly position snapshots
+1. **Smart Money Radar** -- Track top traders from the Polymarket leaderboard, monitor their trades in real-time, and get whale alerts on Telegram. Based on the #1 paid tool category in the Polymarket ecosystem.
+2. **AI News-to-Market Matcher** -- RSS feed triggers AI analysis matched to Polymarket markets. When news breaks, find the affected market, check the price, and get a directional signal. The workflow that made Betmoar dominant.
+3. **Mispricing Scanner** -- Scan for logically inconsistent pricing across correlated markets. When exclusive outcomes don't sum to 100%, you've found a mispricing.
+4. **Daily Portfolio Digest** -- Morning summary of your wallet positions with P&L breakdown. The most underserved category in Polymarket tooling.
+5. **Resolution Watcher** -- Monitor markets approaching resolution. Get alerts when your markets are about to close. A genuinely unserved niche.
 
 ## Credentials
 

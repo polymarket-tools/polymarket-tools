@@ -43,7 +43,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Extract wallet addresses from leaderboard entries\nconst leaders = $input.all();\nconst wallets = leaders.map(item => ({\n  json: {\n    walletAddress: item.json.walletAddress || item.json.address || item.json.wallet,\n    userName: item.json.userName || item.json.username || item.json.name || 'Unknown',\n    rank: item.json.rank || 0,\n    profit: item.json.profit || item.json.pnl || 0\n  }\n}));\n\nreturn wallets.filter(w => w.json.walletAddress);"
+        "jsCode": "// Extract wallet addresses from leaderboard entries\nconst leaders = $input.all();\nconst wallets = leaders.map(item => ({\n  json: {\n    walletAddress: item.json.proxyWallet,\n    userName: item.json.userName || 'Unknown',\n    rank: item.json.rank || 0,\n    pnl: item.json.pnl || 0,\n    volume: item.json.volume || 0\n  }\n}));\n\nreturn wallets.filter(w => w.json.walletAddress);"
       },
       "id": "a1b2c3d4-1111-4a00-b000-000000000004",
       "name": "Extract Wallet Addresses",

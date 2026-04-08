@@ -22,6 +22,10 @@ There are two existing Polymarket n8n community nodes. Neither can place a trade
 | Trading | Place Order | EIP-712 signed limit orders with time-in-force options and dry-run validation |
 | Trading | Cancel Order | Cancel by order ID |
 | Trading | Get Open Orders | List open orders, optionally filtered by market |
+| Data | Get Leaderboard | Top traders ranked by profit (day/week/month/all time) |
+| Data | Get Wallet Positions | Any wallet's open positions with P&L |
+| Data | Get Wallet Trades | Trade history for any wallet |
+| Data | Get Market Holders | Top holders of any prediction market |
 
 ### Polymarket Trigger (Polling)
 
@@ -41,13 +45,13 @@ The node uses `loadOptionsMethod` to populate dropdowns with live Polymarket dat
 
 ### Workflow Templates
 
-Five ready-to-use templates ship with the package. When users import these from [n8n.io/workflows](https://n8n.io/workflows), n8n prompts them to install `n8n-nodes-polymarket`:
+Five demand-backed templates ship with the package, built on what Polymarket traders actually use and pay for:
 
-1. **Daily Polymarket Briefing to Slack** -- Morning market summary
-2. **Price Alert to Telegram** -- Threshold-based notifications
-3. **AI Agent Polymarket Trader** -- LLM-powered market analysis and trading
-4. **New Market Scanner** -- Category-filtered new market alerts
-5. **Portfolio Tracker to Google Sheets** -- Hourly position snapshots
+1. **Smart Money Radar** -- Track top traders from the leaderboard, monitor whale trades, get alerts on Telegram
+2. **AI News-to-Market Matcher** -- RSS feed triggers AI analysis matched to Polymarket markets with directional signals
+3. **Mispricing Scanner** -- Detect logically inconsistent pricing across correlated markets
+4. **Daily Portfolio Digest** -- Morning P&L summary of your wallet positions
+5. **Resolution Watcher** -- Monitor markets approaching resolution, get alerts before they close
 
 ## How It Drives Volume
 
@@ -66,12 +70,13 @@ polymarket-tools/
         gamma.ts                    Gamma REST API client (market discovery)
         clob-public.ts              CLOB public API client (pricing)
         clob-trading.ts             CLOB trading client (viem wallet + EIP-712 signing)
+        data-api.ts                 Data API client (leaderboard, positions, trades, holders)
         errors.ts                   Auth header sanitization (prevents credential leaks in logs)
         types.ts                    Full TypeScript type definitions
-    n8n-nodes/                      n8n-nodes-polymarket
+    n8n-nodes/                      n8n-nodes-polymarket-tools
       credentials/                  API credential management with builder code
       nodes/
-        Polymarket/                 Action node (Market, Price, Trading resources)
+        Polymarket/                 Action node (Market, Price, Trading, Data resources)
           actions/                  Modular operation handlers
           methods/                  Dynamic option loading (live market browsing)
           utils/                    Shared helpers (credential-to-client mapping)

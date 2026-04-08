@@ -189,7 +189,6 @@ export interface WalletTrade {
 export interface MarketHolder {
   wallet: string;
   size: number;
-  avgPrice: number;
 }
 
 export interface MarketPosition {
