@@ -55,8 +55,10 @@
         "resource": "market",
         "operation": "search",
         "query": "",
-        "active": true,
-        "limit": 10
+        "filters": {
+          "active": true,
+          "limit": 10
+        }
       },
       "id": "cg-0001-0000-0000-000000000004",
       "name": "Search Trending Markets",
