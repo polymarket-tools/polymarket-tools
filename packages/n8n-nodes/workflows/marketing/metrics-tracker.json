@@ -1,0 +1,217 @@
+{
+  "name": "Daily Install & Engagement Metrics",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Daily Install & Engagement Metrics\n\nTracks npm downloads, GitHub stars/forks, and sends a daily digest to Telegram.\n\n**Setup:**\n1. Configure the Telegram node with your bot token credential\n2. Optionally add a GitHub personal access token in the GitHub Stars node headers for higher rate limits\n3. Adjust the schedule if you want a different time (default: 6pm ET daily)\n\n**How it works:**\n- Fetches daily and weekly npm download counts\n- Pulls GitHub stars, forks, and open issues\n- Gets latest published version from npm registry\n- Compares against previous day's metrics (stored in workflow static data)\n- Flags significant spikes or drops in downloads\n- Sends formatted digest to Telegram\n\n**Metrics stored between runs:** Previous day's downloads, stars, forks for comparison"
+      },
+      "id": "mt-0001-0000-0000-000000000001",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [200, 60]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 18 * * *"
+            }
+          ]
+        }
+      },
+      "id": "mt-0001-0000-0000-000000000002",
+      "name": "Daily 6pm ET",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 380]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.npmjs.org/downloads/point/last-day/n8n-nodes-polymarket-tools",
+        "options": {}
+      },
+      "id": "mt-0001-0000-0000-000000000003",
+      "name": "npm Daily Downloads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.npmjs.org/downloads/point/last-week/n8n-nodes-polymarket-tools",
+        "options": {}
+      },
+      "id": "mt-0001-0000-0000-000000000004",
+      "name": "npm Weekly Downloads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 360]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.github.com/repos/polymarket-tools/polymarket-tools",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.github.v3+json" },
+            { "name": "User-Agent", "value": "n8n-metrics-tracker/1.0" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "mt-0001-0000-0000-000000000005",
+      "name": "GitHub Stats",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 520]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://registry.npmjs.org/n8n-nodes-polymarket-tools",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.npm.install-v1+json" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "mt-0001-0000-0000-000000000006",
+      "name": "npm Registry Info",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 680]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gather all metrics and compare against previous day\nconst staticData = $getWorkflowStaticData('global');\n\n// Get data from all upstream nodes\nconst dailyData = $('npm Daily Downloads').first().json;\nconst weeklyData = $('npm Weekly Downloads').first().json;\nconst githubData = $('GitHub Stats').first().json;\nconst registryData = $('npm Registry Info').first().json;\n\n// Extract metrics\nconst daily = dailyData.downloads || 0;\nconst weekly = weeklyData.downloads || 0;\nconst stars = githubData.stargazers_count || 0;\nconst forks = githubData.forks_count || 0;\nconst openIssues = githubData.open_issues_count || 0;\n\n// Get latest version from registry\nlet latestVersion = 'unknown';\nlet totalVersions = 0;\ntry {\n  const distTags = registryData['dist-tags'] || {};\n  latestVersion = distTags.latest || 'unknown';\n  const versions = registryData.versions || {};\n  totalVersions = Object.keys(versions).length;\n} catch (e) {\n  // Registry response format may vary\n}\n\n// Compare with previous metrics\nconst prev = staticData.previousMetrics || {};\nconst prevDaily = prev.daily || 0;\nconst prevStars = prev.stars || 0;\nconst prevForks = prev.forks || 0;\n\n// Detect significant changes\nconst alerts = [];\nif (prevDaily > 0) {\n  const dailyChange = ((daily - prevDaily) / prevDaily) * 100;\n  if (dailyChange > 50) {\n    alerts.push(`SPIKE: Daily downloads up ${dailyChange.toFixed(0)}% (${prevDaily} -> ${daily})`);\n  } else if (dailyChange < -50) {\n    alerts.push(`DROP: Daily downloads down ${Math.abs(dailyChange).toFixed(0)}% (${prevDaily} -> ${daily})`);\n  }\n}\nif (stars > prevStars) {\n  alerts.push(`NEW STARS: +${stars - prevStars} (${prevStars} -> ${stars})`);\n}\nif (forks > prevForks) {\n  alerts.push(`NEW FORKS: +${forks - prevForks} (${prevForks} -> ${forks})`);\n}\n\n// Store current metrics for next comparison\nstaticData.previousMetrics = { daily, weekly, stars, forks, openIssues, latestVersion };\n\n// Build the digest message\nconst date = new Date().toLocaleDateString('en-US', {\n  weekday: 'long',\n  year: 'numeric',\n  month: 'long',\n  day: 'numeric'\n});\n\nlet message = `DAILY METRICS -- ${date}\\n`;\nmessage += `${'='.repeat(40)}\\n\\n`;\nmessage += `npm downloads (yesterday): ${daily.toLocaleString()}\\n`;\nmessage += `npm downloads (this week): ${weekly.toLocaleString()}\\n`;\nmessage += `GitHub stars: ${stars.toLocaleString()}\\n`;\nmessage += `GitHub forks: ${forks.toLocaleString()}\\n`;\nmessage += `Open issues: ${openIssues}\\n`;\nmessage += `Latest version: ${latestVersion}\\n`;\nmessage += `Total versions published: ${totalVersions}\\n`;\n\nif (alerts.length > 0) {\n  message += `\\nALERTS:\\n${alerts.map(a => `  ${a}`).join('\\n')}\\n`;\n} else if (prevDaily > 0) {\n  message += `\\nNo significant changes from previous day.\\n`;\n} else {\n  message += `\\nFirst run -- comparisons will appear tomorrow.\\n`;\n}\n\nreturn [{ json: { message } }];"
+      },
+      "id": "mt-0001-0000-0000-000000000007",
+      "name": "Build Metrics Digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 440]
+    },
+    {
+      "parameters": {
+        "chatId": "8505904361",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "id": "mt-0001-0000-0000-000000000008",
+      "name": "Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1040, 440],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Daily 6pm ET": {
+      "main": [
+        [
+          {
+            "node": "npm Daily Downloads",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "npm Weekly Downloads",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GitHub Stats",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "npm Registry Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "npm Daily Downloads": {
+      "main": [
+        [
+          {
+            "node": "Build Metrics Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "npm Weekly Downloads": {
+      "main": [
+        [
+          {
+            "node": "Build Metrics Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub Stats": {
+      "main": [
+        [
+          {
+            "node": "Build Metrics Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "npm Registry Info": {
+      "main": [
+        [
+          {
+            "node": "Build Metrics Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Metrics Digest": {
+      "main": [
+        [
+          {
+            "node": "Send to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "marketing" },
+    { "name": "metrics" },
+    { "name": "telegram" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}

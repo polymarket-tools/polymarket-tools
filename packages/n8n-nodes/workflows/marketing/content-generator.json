@@ -1,0 +1,260 @@
+{
+  "name": "Marketing Content Generator (3x/week)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Marketing Content Generator (3x/week)\n\nGenerates social media post drafts from live Polymarket data and sends them to Telegram for review.\n\n**Setup:**\n1. Configure the Telegram node with your bot token credential\n2. Set your OpenAI API key in the HTTP Request node (replace the Authorization header placeholder)\n3. Adjust the schedule if you want different days/times (default: Mon/Wed/Fri 9am ET)\n\n**How it works:**\n- Pulls today's top traders from the leaderboard\n- Fetches trending active markets\n- Grabs recent trades from the top trader (whale activity)\n- Sends all context to OpenAI to generate 3 platform-specific posts\n- Delivers drafts to Telegram for human review before posting\n\n**Requires:** Polymarket Tools node, Telegram Bot credential, OpenAI API key"
+      },
+      "id": "cg-0001-0000-0000-000000000001",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [200, 60]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1,3,5"
+            }
+          ]
+        }
+      },
+      "id": "cg-0001-0000-0000-000000000002",
+      "name": "Mon-Wed-Fri 9am ET",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 340]
+    },
+    {
+      "parameters": {
+        "resource": "data",
+        "operation": "getLeaderboard",
+        "timePeriod": "day",
+        "limit": 5
+      },
+      "id": "cg-0001-0000-0000-000000000003",
+      "name": "Get Leaderboard",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [460, 240]
+    },
+    {
+      "parameters": {
+        "resource": "market",
+        "operation": "search",
+        "query": "",
+        "active": true,
+        "limit": 10
+      },
+      "id": "cg-0001-0000-0000-000000000004",
+      "name": "Search Trending Markets",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [460, 440]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract the top trader's wallet address from leaderboard\nconst leaders = $('Get Leaderboard').all();\nif (!leaders.length || !leaders[0].json.proxyWallet) {\n  return [{ json: { walletAddress: null, error: 'No leaderboard data' } }];\n}\n\nconst topTrader = leaders[0].json;\nreturn [{\n  json: {\n    walletAddress: topTrader.proxyWallet,\n    userName: topTrader.userName || 'Top Trader',\n    pnl: topTrader.pnl || 0,\n    volume: topTrader.volume || 0\n  }\n}];"
+      },
+      "id": "cg-0001-0000-0000-000000000005",
+      "name": "Extract Top Trader Wallet",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 240]
+    },
+    {
+      "parameters": {
+        "resource": "data",
+        "operation": "getWalletTrades",
+        "walletAddress": "={{ $json.walletAddress }}",
+        "limit": 5
+      },
+      "id": "cg-0001-0000-0000-000000000006",
+      "name": "Get Whale Trades",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [980, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine all data sources into a single context block for AI\nconst leaders = $('Get Leaderboard').all();\nconst markets = $('Search Trending Markets').all();\nconst whaleTrades = $input.all();\n\n// Format leaderboard\nconst leaderboardText = leaders.map((l, i) => {\n  const d = l.json;\n  return `${i + 1}. ${d.userName || 'Anon'} -- PnL: $${Number(d.pnl || 0).toLocaleString()}, Volume: $${Number(d.volume || 0).toLocaleString()}`;\n}).join('\\n');\n\n// Format trending markets\nconst marketsText = markets.slice(0, 10).map((m, i) => {\n  const d = m.json;\n  const prices = typeof d.outcomePrices === 'string' ? JSON.parse(d.outcomePrices) : (d.outcomePrices || []);\n  const yesPrice = prices[0] ? `${(Number(prices[0]) * 100).toFixed(0)}%` : 'N/A';\n  return `${i + 1}. \"${d.question || d.title || 'Unknown'}\" -- Yes: ${yesPrice}, Volume: $${Number(d.volume || 0).toLocaleString()}`;\n}).join('\\n');\n\n// Format whale trades\nconst whaleText = whaleTrades.map(t => {\n  const d = t.json;\n  const side = (d.side || d.type || 'UNKNOWN').toUpperCase();\n  return `- ${side} ${d.market || d.question || 'Unknown'} -- ${d.size || d.amount || '?'} shares at $${Number(d.price || 0).toFixed(2)}`;\n}).join('\\n');\n\nconst contextBlock = `TODAY'S POLYMARKET DATA\\n\\n` +\n  `TOP TRADERS (24h):\\n${leaderboardText}\\n\\n` +\n  `TRENDING MARKETS:\\n${marketsText}\\n\\n` +\n  `WHALE TRADES (top trader's recent activity):\\n${whaleText}`;\n\nreturn [{ json: { contextBlock } }];"
+      },
+      "id": "cg-0001-0000-0000-000000000007",
+      "name": "Build AI Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 340]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: 'You are a social media manager for a Polymarket automation tool called n8n-nodes-polymarket-tools. Generate 3 social media posts (1 tweet under 280 chars, 1 Reddit comment-style post, 1 short LinkedIn post) about the most interesting market movement today. Frame each post from the reader\\'s pain or desired outcome, not \\'look what we built\\'. Mention that the data came from our n8n node. Be direct, no fluff, no emojis unless they add meaning. Voice: confident CTO, not marketing department.' }, { role: 'user', content: $json.contextBlock }], temperature: 0.8, max_tokens: 1000 }) }}",
+        "options": {}
+      },
+      "id": "cg-0001-0000-0000-000000000008",
+      "name": "Generate Posts (OpenAI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1500, 340],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "OpenAI API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI response and format for Telegram\nconst response = $input.first().json;\nlet content = '';\n\ntry {\n  content = response.choices[0].message.content;\n} catch (e) {\n  content = 'ERROR: Could not parse OpenAI response. Check the HTTP Request node output.';\n}\n\nconst today = new Date().toLocaleDateString('en-US', {\n  weekday: 'long',\n  year: 'numeric',\n  month: 'long',\n  day: 'numeric'\n});\n\nconst telegramMessage = `REVIEW & POST\\n` +\n  `Marketing Content -- ${today}\\n` +\n  `${'='.repeat(40)}\\n\\n` +\n  `${content}\\n\\n` +\n  `${'='.repeat(40)}\\n` +\n  `Review these drafts and post to the appropriate platforms.\\n` +\n  `Edit as needed before publishing.`;\n\nreturn [{ json: { message: telegramMessage } }];"
+      },
+      "id": "cg-0001-0000-0000-000000000009",
+      "name": "Format for Telegram",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 340]
+    },
+    {
+      "parameters": {
+        "chatId": "8505904361",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "id": "cg-0001-0000-0000-000000000010",
+      "name": "Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2020, 340],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Mon-Wed-Fri 9am ET": {
+      "main": [
+        [
+          {
+            "node": "Get Leaderboard",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Search Trending Markets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Leaderboard": {
+      "main": [
+        [
+          {
+            "node": "Extract Top Trader Wallet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Top Trader Wallet": {
+      "main": [
+        [
+          {
+            "node": "Get Whale Trades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Whale Trades": {
+      "main": [
+        [
+          {
+            "node": "Build AI Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Trending Markets": {
+      "main": [
+        [
+          {
+            "node": "Build AI Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build AI Context": {
+      "main": [
+        [
+          {
+            "node": "Generate Posts (OpenAI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Posts (OpenAI)": {
+      "main": [
+        [
+          {
+            "node": "Format for Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format for Telegram": {
+      "main": [
+        [
+          {
+            "node": "Send to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "marketing" },
+    { "name": "content" },
+    { "name": "telegram" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}
