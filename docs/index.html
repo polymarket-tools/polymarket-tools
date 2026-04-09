@@ -4,178 +4,655 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Polymarket Tools for n8n — Automate Prediction Markets</title>
-  <meta name="description" content="Free n8n community node for Polymarket. Trading with EIP-712 signing, whale tracking, AI agent support, and 15 workflow templates.">
+  <meta name="description" content="The first n8n node with full Polymarket trading. EIP-712 signing, whale tracking, AI agents, 15 workflow templates. Free and open source.">
+  <meta property="og:title" content="Polymarket Tools for n8n">
+  <meta property="og:description" content="Automate prediction market trading, whale tracking, and AI signals. 12 operations, 15 templates.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://polymarket-tools.github.io/polymarket-tools/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg: #08080d;
+      --bg-raised: #0e0e16;
+      --bg-card: #12121c;
+      --border: #1e1e2e;
+      --border-bright: #2a2a3e;
+      --text: #d4d4dc;
+      --text-muted: #6b6b80;
+      --text-dim: #44445a;
+      --white: #f0f0f4;
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.15);
+      --amber: #f59e0b;
+      --green: #22c55e;
+      --red: #ef4444;
+      --serif: 'Instrument Serif', Georgia, serif;
+      --sans: 'DM Sans', -apple-system, sans-serif;
+      --mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1a1a2e; line-height: 1.6; }
-    .container { max-width: 720px; margin: 0 auto; padding: 0 24px; }
 
-    header { background: #0f0f23; color: #e0e0e0; padding: 48px 0 40px; }
-    header h1 { font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 12px; }
-    header p { font-size: 18px; color: #a0a0b8; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
 
-    .install { background: #f8f9fa; padding: 48px 0; }
-    .install h2 { font-size: 22px; margin-bottom: 24px; }
-    .step { display: flex; gap: 16px; margin-bottom: 24px; align-items: flex-start; }
-    .step-num { background: #0066ff; color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
-    .step-content h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
-    .step-content p { font-size: 15px; color: #555; }
-    code { background: #e8ecf1; padding: 2px 8px; border-radius: 4px; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; }
-    .code-block { background: #1a1a2e; color: #e0e0e0; padding: 16px 20px; border-radius: 8px; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; margin: 12px 0; overflow-x: auto; }
+    .container { max-width: 1080px; margin: 0 auto; padding: 0 32px; }
 
-    .features { padding: 48px 0; }
-    .features h2 { font-size: 22px; margin-bottom: 24px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
-    th { text-align: left; padding: 10px 12px; background: #f0f2f5; font-size: 14px; font-weight: 600; }
-    td { padding: 10px 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+    /* ── Noise texture overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+    }
 
-    .templates { background: #f8f9fa; padding: 48px 0; }
-    .templates h2 { font-size: 22px; margin-bottom: 24px; }
-    .template-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .template-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; }
-    .template-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
-    .template-card p { font-size: 13px; color: #666; }
+    /* ── Animations ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    @keyframes slideCount {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
 
-    .cta { padding: 48px 0; text-align: center; }
-    .cta h2 { font-size: 22px; margin-bottom: 16px; }
-    .btn { display: inline-block; background: #0066ff; color: #fff; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; margin: 8px; }
-    .btn-outline { background: transparent; border: 2px solid #0066ff; color: #0066ff; }
+    .animate { animation: fadeUp 0.6s ease-out both; }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
+    .delay-4 { animation-delay: 0.4s; }
+    .delay-5 { animation-delay: 0.5s; }
 
-    footer { background: #0f0f23; color: #888; padding: 24px 0; text-align: center; font-size: 13px; }
-    footer a { color: #a0a0b8; }
+    /* ── Nav ── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 16px 0;
+      background: rgba(8, 8, 13, 0.8);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    nav .container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .nav-brand {
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--white);
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+    .nav-brand span { color: var(--accent); }
+    .nav-links { display: flex; gap: 24px; align-items: center; }
+    .nav-links a {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--white); }
+    .nav-pill {
+      background: var(--accent);
+      color: #fff;
+      padding: 6px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .nav-pill:hover { background: #2563eb; color: #fff; }
 
-    @media (max-width: 600px) {
+    /* ── Hero ── */
+    .hero {
+      padding: 160px 0 100px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+      animation: fadeIn 0.4s ease-out both;
+    }
+    .hero-label .dot {
+      width: 6px;
+      height: 6px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    .hero h1 {
+      font-family: var(--serif);
+      font-size: clamp(42px, 6vw, 72px);
+      font-weight: 400;
+      color: var(--white);
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      max-width: 800px;
+      margin-bottom: 24px;
+    }
+    .hero p {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 560px;
+      line-height: 1.7;
+      margin-bottom: 40px;
+    }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #fff;
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+    }
+    .btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      color: var(--text);
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      border: 1px solid var(--border-bright);
+      transition: all 0.2s;
+    }
+    .btn-ghost:hover { border-color: var(--text-muted); color: var(--white); }
+
+    /* ── Stats bar ── */
+    .stats {
+      display: flex;
+      gap: 48px;
+      padding: 48px 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      margin: 0;
+    }
+    .stat { text-align: center; flex: 1; }
+    .stat-value {
+      font-family: var(--mono);
+      font-size: 32px;
+      font-weight: 500;
+      color: var(--white);
+      display: block;
+      animation: slideCount 0.8s ease-out both;
+    }
+    .stat-label {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    /* ── Install ── */
+    .install { padding: 96px 0; }
+    .section-label {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-family: var(--serif);
+      font-size: 36px;
+      color: var(--white);
+      letter-spacing: -0.02em;
+      margin-bottom: 48px;
+    }
+    .terminal {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+    }
+    .terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .terminal-dot.r { background: #ff5f57; }
+    .terminal-dot.y { background: #febc2e; }
+    .terminal-dot.g { background: #28c840; }
+    .terminal-title {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-left: 8px;
+    }
+    .terminal-body {
+      padding: 24px;
+      font-family: var(--mono);
+      font-size: 14px;
+      line-height: 2.2;
+    }
+    .terminal-body .prompt { color: var(--green); }
+    .terminal-body .cmd { color: var(--white); }
+    .terminal-body .comment { color: var(--text-dim); }
+    .terminal-body .output { color: var(--text-muted); }
+    .terminal-body .highlight { color: var(--amber); }
+
+    /* ── Operations grid ── */
+    .operations { padding: 96px 0; }
+    .ops-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .op-card {
+      background: var(--bg-raised);
+      padding: 28px 24px;
+      transition: background 0.2s;
+    }
+    .op-card:hover { background: var(--bg-card); }
+    .op-resource {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--accent);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .op-card h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--white);
+      margin-bottom: 6px;
+    }
+    .op-card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* ── Templates ── */
+    .templates { padding: 96px 0; }
+    .template-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .t-card {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      transition: all 0.25s;
+      position: relative;
+      overflow: hidden;
+    }
+    .t-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+    .t-card:hover { border-color: var(--border-bright); transform: translateY(-2px); }
+    .t-card:hover::before { opacity: 1; }
+    .t-icon {
+      font-size: 20px;
+      margin-bottom: 12px;
+      display: block;
+    }
+    .t-card h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--white);
+      margin-bottom: 8px;
+    }
+    .t-card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .t-tag {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      background: var(--bg);
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-top: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* ── CTA ── */
+    .cta {
+      padding: 96px 0;
+      text-align: center;
+      position: relative;
+    }
+    .cta::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .cta h2 {
+      font-family: var(--serif);
+      font-size: 40px;
+      color: var(--white);
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+    .cta p {
+      color: var(--text-muted);
+      font-size: 16px;
+      margin-bottom: 32px;
+    }
+    .cta .code-inline {
+      display: inline-block;
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-family: var(--mono);
+      font-size: 15px;
+      color: var(--amber);
+      margin-bottom: 32px;
+      letter-spacing: -0.01em;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 0;
+      text-align: center;
+    }
+    footer p { font-size: 13px; color: var(--text-dim); }
+    footer a { color: var(--text-muted); text-decoration: none; }
+    footer a:hover { color: var(--white); }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .ops-grid { grid-template-columns: repeat(2, 1fr); }
+      .template-grid { grid-template-columns: 1fr 1fr; }
+      .stats { flex-wrap: wrap; gap: 24px; }
+      .stat { min-width: 120px; }
+      .hero { padding: 120px 0 64px; }
+      .nav-links a:not(.nav-pill) { display: none; }
+    }
+    @media (max-width: 480px) {
+      .ops-grid { grid-template-columns: 1fr; }
       .template-grid { grid-template-columns: 1fr; }
-      header h1 { font-size: 22px; }
     }
   </style>
 </head>
 <body>
 
-<header>
+<nav>
   <div class="container">
-    <h1>Polymarket Tools for n8n</h1>
-    <p>Automate prediction market trading, whale tracking, and AI signals. Free, open source, 15 templates.</p>
+    <a href="#" class="nav-brand"><span>polymarket</span>-tools</a>
+    <div class="nav-links">
+      <a href="#install">Install</a>
+      <a href="#operations">Operations</a>
+      <a href="#templates">Templates</a>
+      <a href="https://github.com/polymarket-tools/polymarket-tools" class="nav-pill">GitHub</a>
+    </div>
   </div>
-</header>
+</nav>
 
-<section class="install">
+<section class="hero">
   <div class="container">
-    <h2>Install in 60 seconds</h2>
-
-    <div class="step">
-      <div class="step-num">1</div>
-      <div class="step-content">
-        <h3>Open your n8n instance</h3>
-        <p>Self-hosted or n8n Cloud. Both work.</p>
-      </div>
+    <div class="hero-label animate"><span class="dot"></span> Live on npm</div>
+    <h1 class="animate delay-1">Automate Polymarket<br>from n8n</h1>
+    <p class="animate delay-2">The first n8n node with full prediction market trading. EIP-712 signed orders, whale tracking, AI agent support, and 15 workflow templates. Free and open source.</p>
+    <div class="hero-actions animate delay-3">
+      <a href="#install" class="btn-primary">Install now</a>
+      <a href="https://github.com/polymarket-tools/polymarket-tools" class="btn-ghost">View source</a>
     </div>
+  </div>
+</section>
 
-    <div class="step">
-      <div class="step-num">2</div>
-      <div class="step-content">
-        <h3>Go to Settings > Community Nodes</h3>
-        <p>Click <strong>Install</strong> in the community nodes section.</p>
+<section>
+  <div class="container">
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-value">12</span>
+        <div class="stat-label">Operations</div>
       </div>
-    </div>
-
-    <div class="step">
-      <div class="step-num">3</div>
-      <div class="step-content">
-        <h3>Search and install</h3>
-        <p>Enter the package name and click install:</p>
-        <div class="code-block">n8n-nodes-polymarket-tools</div>
+      <div class="stat">
+        <span class="stat-value">15</span>
+        <div class="stat-label">Templates</div>
       </div>
-    </div>
-
-    <div class="step">
-      <div class="step-num">4</div>
-      <div class="step-content">
-        <h3>Start building workflows</h3>
-        <p>Search for "Polymarket" in the node panel. Market data and whale tracking work immediately. No API key needed.</p>
+      <div class="stat">
+        <span class="stat-value">163</span>
+        <div class="stat-label">Tests</div>
+      </div>
+      <div class="stat">
+        <span class="stat-value">4</span>
+        <div class="stat-label">Resources</div>
       </div>
     </div>
   </div>
 </section>
 
-<section class="features">
+<section class="install" id="install">
   <div class="container">
-    <h2>12 operations across 4 resources</h2>
-
-    <table>
-      <tr><th>Resource</th><th>Operations</th></tr>
-      <tr><td>Market</td><td>Search, Get</td></tr>
-      <tr><td>Price</td><td>Get (midpoint, spread, order book), Get History</td></tr>
-      <tr><td>Trading</td><td>Place Order (EIP-712 signed), Cancel, Get Open Orders</td></tr>
-      <tr><td>Data</td><td>Leaderboard, Wallet Positions, Wallet Trades, Market Holders</td></tr>
-    </table>
-
-    <p>3 polling triggers: Price Change, Threshold Crossing, New Market.</p>
-    <p>Both nodes set <code>usableAsTool</code> for n8n's AI Agent node.</p>
+    <div class="section-label">Get started</div>
+    <div class="section-title">Install in 60 seconds</div>
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dot r"></div>
+        <div class="terminal-dot y"></div>
+        <div class="terminal-dot g"></div>
+        <div class="terminal-title">n8n &mdash; Community Nodes</div>
+      </div>
+      <div class="terminal-body">
+        <div><span class="comment"># Open n8n Settings &gt; Community Nodes &gt; Install</span></div>
+        <div><span class="comment"># Enter the package name:</span></div>
+        <div style="margin: 8px 0;"><span class="prompt">&gt;</span> <span class="highlight">n8n-nodes-polymarket-tools</span></div>
+        <div style="margin-top: 16px;"><span class="comment"># Market data and whale tracking work immediately.</span></div>
+        <div><span class="comment"># No API key needed for read operations.</span></div>
+        <div style="margin-top: 16px;"><span class="output">Installed: n8n-nodes-polymarket-tools</span></div>
+        <div><span class="output">Nodes: Polymarket, Polymarket Trigger</span></div>
+      </div>
+    </div>
   </div>
 </section>
 
-<section class="templates">
+<section class="operations" id="operations">
   <div class="container">
-    <h2>15 workflow templates</h2>
-    <p style="margin-bottom: 16px; color: #555;">Every template is a real strategy Polymarket traders use and pay for.</p>
+    <div class="section-label">Capabilities</div>
+    <div class="section-title">12 operations across 4 resources</div>
+    <div class="ops-grid">
+      <div class="op-card">
+        <div class="op-resource">Market</div>
+        <h3>Search</h3>
+        <p>Find markets by keyword, category, or tag</p>
+      </div>
+      <div class="op-card">
+        <div class="op-resource">Market</div>
+        <h3>Get</h3>
+        <p>Full details by condition ID or slug</p>
+      </div>
+      <div class="op-card">
+        <div class="op-resource">Price</div>
+        <h3>Get</h3>
+        <p>Midpoint, spread, order book depth</p>
+      </div>
+      <div class="op-card">
+        <div class="op-resource">Price</div>
+        <h3>Get History</h3>
+        <p>1h to all-time price data</p>
+      </div>
+      <div class="op-card">
+        <div class="op-resource">Trading</div>
+        <h3>Place Order</h3>
+        <p>EIP-712 signed limit orders</p>
+      </div>
+      <div class="op-card">
+        <div class="op-resource">Trading</div>
+        <h3>Cancel / List</h3>
+        <p>Cancel orders, list open positions</p>
+      </div>
+      <div class="op-card">
+        <div class="op-resource">Data</div>
+        <h3>Leaderboard</h3>
+        <p>Top traders ranked by profit</p>
+      </div>
+      <div class="op-card">
+        <div class="op-resource">Data</div>
+        <h3>Wallets</h3>
+        <p>Positions, trades, P&amp;L for any wallet</p>
+      </div>
+    </div>
+    <p style="margin-top: 24px; font-size: 14px; color: var(--text-muted);">3 polling triggers: Price Change, Threshold Crossing, New Market. Both nodes support <code style="background: var(--bg-card); color: var(--amber); padding: 2px 6px; border-radius: 3px; font-family: var(--mono); font-size: 12px;">usableAsTool</code> for n8n's AI Agent node.</p>
+  </div>
+</section>
 
+<section class="templates" id="templates">
+  <div class="container">
+    <div class="section-label">Ready to run</div>
+    <div class="section-title">15 workflow templates</div>
     <div class="template-grid">
-      <div class="template-card">
+      <div class="t-card">
+        <span class="t-icon">&#x1f6a8;</span>
         <h3>Smart Money Radar</h3>
         <p>Track whale wallets from the leaderboard. Alert when top traders move.</p>
+        <span class="t-tag">whale tracking</span>
       </div>
-      <div class="template-card">
+      <div class="t-card">
+        <span class="t-icon">&#x1f4cb;</span>
         <h3>Copy Trader</h3>
         <p>Mirror whale trades with configurable position sizing.</p>
+        <span class="t-tag">copy trading</span>
       </div>
-      <div class="template-card">
+      <div class="t-card">
+        <span class="t-icon">&#x26bd;</span>
         <h3>Sportsbook Edge Scanner</h3>
         <p>Compare Polymarket odds against sportsbook lines.</p>
+        <span class="t-tag">sports</span>
       </div>
-      <div class="template-card">
+      <div class="t-card">
+        <span class="t-icon">&#x1f4f0;</span>
         <h3>AI News Matcher</h3>
-        <p>RSS feed into AI that matches headlines to Polymarket markets.</p>
+        <p>RSS into AI that matches headlines to markets.</p>
+        <span class="t-tag">ai agent</span>
       </div>
-      <div class="template-card">
+      <div class="t-card">
+        <span class="t-icon">&#x1f4b0;</span>
         <h3>Tax Report Generator</h3>
-        <p>IRS Form 8949 compatible export of your trade history.</p>
+        <p>IRS Form 8949 compatible trade export.</p>
+        <span class="t-tag">portfolio</span>
       </div>
-      <div class="template-card">
+      <div class="t-card">
+        <span class="t-icon">&#x2696;</span>
         <h3>Market Making Bot</h3>
-        <p>Two-sided orders for Polymarket's liquidity rewards program.</p>
+        <p>Two-sided orders for liquidity rewards.</p>
+        <span class="t-tag">market making</span>
       </div>
-      <div class="template-card">
+      <div class="t-card">
+        <span class="t-icon">&#x26a1;</span>
         <h3>BTC Momentum Scalper</h3>
-        <p>Binance price momentum into Polymarket 5-minute markets.</p>
+        <p>Binance price into Polymarket 5-min markets.</p>
+        <span class="t-tag">crypto</span>
       </div>
-      <div class="template-card">
+      <div class="t-card">
+        <span class="t-icon">&#x1f50d;</span>
         <h3>Mispricing Scanner</h3>
-        <p>Detect pricing inconsistencies across correlated markets.</p>
+        <p>Detect pricing inconsistencies across markets.</p>
+        <span class="t-tag">arbitrage</span>
       </div>
-      <div class="template-card">
+      <div class="t-card">
+        <span class="t-icon">&#x1f4ca;</span>
         <h3>Portfolio Tracker</h3>
-        <p>Positions and P&L synced to Google Sheets hourly.</p>
+        <p>Positions and P&amp;L synced to Google Sheets.</p>
+        <span class="t-tag">portfolio</span>
       </div>
-      <div class="template-card">
+      <div class="t-card">
+        <span class="t-icon">&#x1f5f3;</span>
         <h3>Polls vs Markets</h3>
-        <p>Election polling divergence alerts against Polymarket prices.</p>
+        <p>Election polling divergence alerts.</p>
+        <span class="t-tag">elections</span>
       </div>
-      <div class="template-card">
+      <div class="t-card">
+        <span class="t-icon">&#x23f0;</span>
         <h3>Resolution Watcher</h3>
-        <p>Alerts when your markets are about to close.</p>
+        <p>Alerts when markets are about to close.</p>
+        <span class="t-tag">monitoring</span>
       </div>
-      <div class="template-card">
+      <div class="t-card">
+        <span class="t-icon">&#x1f3af;</span>
         <h3>New Market Sniper</h3>
-        <p>AI evaluates new markets for early entry opportunities.</p>
-      </div>
-      <div class="template-card">
-        <h3>AI Sentiment Trader</h3>
-        <p>Social media sentiment into directional trade signals.</p>
-      </div>
-      <div class="template-card">
-        <h3>Game Day Alert Hub</h3>
-        <p>Live sports data combined with Polymarket odds.</p>
+        <p>AI evaluates new markets for early entry.</p>
+        <span class="t-tag">ai agent</span>
       </div>
     </div>
   </div>
@@ -183,16 +660,19 @@
 
 <section class="cta">
   <div class="container">
-    <h2>Get started</h2>
-    <p style="margin-bottom: 20px; color: #555;">Free, open source, 163 tests, E2E verified against live APIs.</p>
-    <a href="https://www.npmjs.com/package/n8n-nodes-polymarket-tools" class="btn">npm package</a>
-    <a href="https://github.com/polymarket-tools/polymarket-tools" class="btn btn-outline">GitHub</a>
+    <h2>Start automating</h2>
+    <p>Free, open source, 163 tests, verified against live APIs.</p>
+    <div class="code-inline">n8n-nodes-polymarket-tools</div>
+    <div style="margin-top: 24px;">
+      <a href="https://www.npmjs.com/package/n8n-nodes-polymarket-tools" class="btn-primary">npm package</a>
+      <a href="https://github.com/polymarket-tools/polymarket-tools" class="btn-ghost">GitHub</a>
+    </div>
   </div>
 </section>
 
 <footer>
   <div class="container">
-    <p>Built for the <a href="https://builders.polymarket.com">Polymarket Builder Program</a>. MIT License.</p>
+    <p>Built for the <a href="https://builders.polymarket.com">Polymarket Builder Program</a>. MIT License. <a href="https://github.com/polymarket-tools/polymarket-tools">Source on GitHub</a>.</p>
   </div>
 </footer>
 
