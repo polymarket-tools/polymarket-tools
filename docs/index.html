@@ -594,6 +594,7 @@
       <a href="#install">Install</a>
       <a href="#operations">Operations</a>
       <a href="#templates">Templates</a>
+      <a href="#prompts">Prompts</a>
       <a href="https://github.com/polymarket-tools/polymarket-tools" class="nav-pill">GitHub</a>
     </div>
   </div>
@@ -794,6 +795,115 @@
     <h2>Start automating</h2>
   </div>
 </section>
+
+<section id="prompts" style="padding: 96px 0; border-top: 1px solid var(--border);">
+  <div class="container">
+    <div class="section-label">Copy, paste, automate</div>
+    <div class="section-title">Claude prompts</div>
+    <p style="color: var(--text-muted); font-size: 15px; margin-bottom: 32px;">Paste any prompt into Claude to set up a working Polymarket automation in minutes.</p>
+
+    <div style="display: grid; gap: 16px;">
+
+      <div class="t-card" style="cursor: pointer;" onclick="copyPrompt(this)">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <span class="t-tag" style="margin-top: 0; margin-bottom: 10px;">whale tracking</span>
+            <h3>Whale Trade Alerts</h3>
+            <p>Get Telegram alerts when top Polymarket traders make moves.</p>
+          </div>
+          <span style="color: var(--text-dim); font-size: 12px; font-family: var(--mono); white-space: nowrap; padding-left: 16px;" class="copy-label">click to copy</span>
+        </div>
+        <pre style="display: none;">I want to set up whale tracking alerts for Polymarket. Install the n8n-nodes-polymarket-tools community node in my n8n instance (Settings > Community Nodes). Then import the Smart Money Radar template from https://github.com/polymarket-tools/polymarket-tools/blob/main/packages/n8n-nodes/templates/smart-money-radar.json. Configure it to:
+- Poll the leaderboard every 10 minutes
+- Track the top 5 traders
+- Send alerts to my Telegram bot
+Help me set up the Telegram bot credential and activate the workflow.</pre>
+      </div>
+
+      <div class="t-card" style="cursor: pointer;" onclick="copyPrompt(this)">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <span class="t-tag" style="margin-top: 0; margin-bottom: 10px;">copy trading</span>
+            <h3>Copy Trading Bot</h3>
+            <p>Mirror trades from top Polymarket wallets automatically.</p>
+          </div>
+          <span style="color: var(--text-dim); font-size: 12px; font-family: var(--mono); white-space: nowrap; padding-left: 16px;" class="copy-label">click to copy</span>
+        </div>
+        <pre style="display: none;">I want to copy trade top Polymarket traders. Install the n8n-nodes-polymarket-tools community node in my n8n instance (Settings > Community Nodes). Then import the Copy Trader template from https://github.com/polymarket-tools/polymarket-tools/blob/main/packages/n8n-nodes/templates/copy-trader.json. Configure it to:
+- Monitor the top trader from the weekly leaderboard
+- Mirror their trades at 10% of their position size
+- Start in validate-only mode (paper trading)
+- Send trade alerts to Telegram
+Help me set up both Telegram and Polymarket API credentials.</pre>
+      </div>
+
+      <div class="t-card" style="cursor: pointer;" onclick="copyPrompt(this)">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <span class="t-tag" style="margin-top: 0; margin-bottom: 10px;">ai agent</span>
+            <h3>AI Market Analyst</h3>
+            <p>AI matches breaking news to Polymarket markets and estimates price impact.</p>
+          </div>
+          <span style="color: var(--text-dim); font-size: 12px; font-family: var(--mono); white-space: nowrap; padding-left: 16px;" class="copy-label">click to copy</span>
+        </div>
+        <pre style="display: none;">I want an AI agent that analyzes Polymarket prediction markets. Install the n8n-nodes-polymarket-tools community node in my n8n instance (Settings > Community Nodes). Then import the AI News-to-Market Matcher template from https://github.com/polymarket-tools/polymarket-tools/blob/main/packages/n8n-nodes/templates/news-to-market-matcher.json. Configure it to:
+- Monitor Reuters RSS feed for breaking news
+- Match news to open Polymarket markets
+- Use OpenAI to analyze whether the news impacts the market price
+- Send high-confidence signals to Telegram
+Help me set up OpenAI and Telegram credentials.</pre>
+      </div>
+
+      <div class="t-card" style="cursor: pointer;" onclick="copyPrompt(this)">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <span class="t-tag" style="margin-top: 0; margin-bottom: 10px;">portfolio</span>
+            <h3>Daily Portfolio Digest</h3>
+            <p>Morning P&amp;L summary of your positions synced to Google Sheets.</p>
+          </div>
+          <span style="color: var(--text-dim); font-size: 12px; font-family: var(--mono); white-space: nowrap; padding-left: 16px;" class="copy-label">click to copy</span>
+        </div>
+        <pre style="display: none;">I want a daily summary of my Polymarket portfolio. Install the n8n-nodes-polymarket-tools community node in my n8n instance (Settings > Community Nodes). Then import the Portfolio Sheets Sync template from https://github.com/polymarket-tools/polymarket-tools/blob/main/packages/n8n-nodes/templates/portfolio-sheets-sync.json. Configure it to:
+- Pull my wallet positions every morning at 9am
+- Calculate total value and P&L per position
+- Export to Google Sheets
+My Polymarket wallet address is [PASTE YOUR WALLET ADDRESS]. Help me set up Google Sheets credentials.</pre>
+      </div>
+
+      <div class="t-card" style="cursor: pointer;" onclick="copyPrompt(this)">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <span class="t-tag" style="margin-top: 0; margin-bottom: 10px;">sports</span>
+            <h3>Sports Edge Scanner</h3>
+            <p>Compare Polymarket odds against sportsbook lines for edge detection.</p>
+          </div>
+          <span style="color: var(--text-dim); font-size: 12px; font-family: var(--mono); white-space: nowrap; padding-left: 16px;" class="copy-label">click to copy</span>
+        </div>
+        <pre style="display: none;">I want to find edges between Polymarket and sportsbook odds. Install the n8n-nodes-polymarket-tools community node in my n8n instance (Settings > Community Nodes). Then import the Sportsbook Edge Scanner template from https://github.com/polymarket-tools/polymarket-tools/blob/main/packages/n8n-nodes/templates/sportsbook-edge-scanner.json. Configure it to:
+- Search Polymarket for NBA markets every 15 minutes
+- Compare against sportsbook odds from The Odds API
+- Alert on Telegram when an edge exceeds 5%
+Help me get a free API key from The Odds API and set up the Telegram credential.</pre>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<script>
+function copyPrompt(card) {
+  const pre = card.querySelector('pre');
+  const label = card.querySelector('.copy-label');
+  navigator.clipboard.writeText(pre.textContent).then(() => {
+    label.textContent = 'copied';
+    label.style.color = '#22c55e';
+    setTimeout(() => {
+      label.textContent = 'click to copy';
+      label.style.color = '';
+    }, 2000);
+  });
+}
+</script>
 
 <section class="faq" style="padding: 96px 0; border-top: 1px solid var(--border);">
   <div class="container">

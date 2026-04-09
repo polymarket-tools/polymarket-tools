@@ -1,0 +1,37 @@
+[
+  {
+    "id": "whale-alerts",
+    "title": "Whale Trade Alerts",
+    "description": "Get Telegram alerts when top Polymarket traders make moves",
+    "tag": "whale tracking",
+    "prompt": "I want to set up whale tracking alerts for Polymarket. Install the n8n-nodes-polymarket-tools community node in my n8n instance (Settings > Community Nodes). Then import the Smart Money Radar template from https://github.com/polymarket-tools/polymarket-tools/blob/main/packages/n8n-nodes/templates/smart-money-radar.json. Configure it to:\n- Poll the leaderboard every 10 minutes\n- Track the top 5 traders\n- Send alerts to my Telegram bot\nHelp me set up the Telegram bot credential and activate the workflow."
+  },
+  {
+    "id": "copy-trader",
+    "title": "Copy Trading Bot",
+    "description": "Mirror trades from top Polymarket wallets automatically",
+    "tag": "copy trading",
+    "prompt": "I want to copy trade top Polymarket traders. Install the n8n-nodes-polymarket-tools community node in my n8n instance (Settings > Community Nodes). Then import the Copy Trader template from https://github.com/polymarket-tools/polymarket-tools/blob/main/packages/n8n-nodes/templates/copy-trader.json. Configure it to:\n- Monitor the top trader from the weekly leaderboard\n- Mirror their trades at 10% of their position size\n- Start in validate-only mode (paper trading)\n- Send trade alerts to Telegram\nHelp me set up both Telegram and Polymarket API credentials."
+  },
+  {
+    "id": "ai-market-analyst",
+    "title": "AI Market Analyst",
+    "description": "AI agent that searches markets, analyzes prices, and suggests trades",
+    "tag": "ai agent",
+    "prompt": "I want an AI agent that analyzes Polymarket prediction markets. Install the n8n-nodes-polymarket-tools community node in my n8n instance (Settings > Community Nodes). Then import the AI News-to-Market Matcher template from https://github.com/polymarket-tools/polymarket-tools/blob/main/packages/n8n-nodes/templates/news-to-market-matcher.json. Configure it to:\n- Monitor Reuters RSS feed for breaking news\n- Match news to open Polymarket markets\n- Use OpenAI to analyze whether the news impacts the market price\n- Send high-confidence signals to Telegram\nHelp me set up OpenAI and Telegram credentials."
+  },
+  {
+    "id": "portfolio-digest",
+    "title": "Daily Portfolio Digest",
+    "description": "Morning P&L summary of your Polymarket positions",
+    "tag": "portfolio",
+    "prompt": "I want a daily summary of my Polymarket portfolio. Install the n8n-nodes-polymarket-tools community node in my n8n instance (Settings > Community Nodes). Then import the Portfolio Sheets Sync template from https://github.com/polymarket-tools/polymarket-tools/blob/main/packages/n8n-nodes/templates/portfolio-sheets-sync.json. Configure it to:\n- Pull my wallet positions every morning at 9am\n- Calculate total value and P&L per position\n- Export to Google Sheets\nMy Polymarket wallet address is [PASTE YOUR WALLET ADDRESS]. Help me set up Google Sheets credentials."
+  },
+  {
+    "id": "sports-edge",
+    "title": "Sports Edge Scanner",
+    "description": "Compare Polymarket odds against sportsbook lines for edge detection",
+    "tag": "sports",
+    "prompt": "I want to find edges between Polymarket and sportsbook odds. Install the n8n-nodes-polymarket-tools community node in my n8n instance (Settings > Community Nodes). Then import the Sportsbook Edge Scanner template from https://github.com/polymarket-tools/polymarket-tools/blob/main/packages/n8n-nodes/templates/sportsbook-edge-scanner.json. Configure it to:\n- Search Polymarket for NBA markets every 15 minutes\n- Compare against sportsbook odds from The Odds API\n- Alert on Telegram when an edge exceeds 5%\nHelp me get a free API key from The Odds API and set up the Telegram credential."
+  }
+]
