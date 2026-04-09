@@ -14,7 +14,7 @@ import {
   getMarketExecute,
 } from './actions/market';
 // Price operations
-import { priceOperations, priceFields, getPriceExecute } from './actions/price';
+import { priceOperations, priceFields, getPriceExecute, getPriceHistoryExecute } from './actions/price';
 // Trading operations
 import {
   tradingOperations,
@@ -114,6 +114,8 @@ export class Polymarket implements INodeType {
           results = await getMarketExecute.call(this, i);
         } else if (resource === 'price' && operation === 'get') {
           results = await getPriceExecute.call(this, i);
+        } else if (resource === 'price' && operation === 'getHistory') {
+          results = await getPriceHistoryExecute.call(this, i);
         } else if (resource === 'trading' && operation === 'placeOrder') {
           results = await placeOrderExecute.call(this, i);
         } else if (resource === 'trading' && operation === 'cancelOrder') {

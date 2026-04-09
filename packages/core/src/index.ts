@@ -11,6 +11,7 @@ export type {
   TokenPrice,
   OrderBookEntry,
   OrderBook,
+  PricePoint,
   OrderSide,
   OrderType,
   TimeInForce,

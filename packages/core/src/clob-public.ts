@@ -1,4 +1,4 @@
-import type { ClobPublicConfig, OrderBook } from './types';
+import type { ClobPublicConfig, OrderBook, PricePoint } from './types';
 import { PolymarketError } from './types';
 import { fetchJson, DEFAULT_CLOB_HOST } from './http';
 
@@ -55,6 +55,23 @@ export class ClobPublicClient {
     const url = `${this.host}/book?token_id=${tokenId}`;
     const data = await fetchJson<OrderBook>(url, 'CLOB API');
     return { bids: data.bids, asks: data.asks };
+  }
+
+  /**
+   * Get price history for a token.
+   * Returns timestamped price points for charting or analysis.
+   */
+  async getPriceHistory(
+    tokenId: string,
+    interval: '1h' | '6h' | '1d' | '1w' | '1m' | 'max' = '1d',
+    fidelity: number = 60,
+  ): Promise<PricePoint[]> {
+    const url = `${this.host}/prices-history?market=${tokenId}&interval=${interval}&fidelity=${fidelity}`;
+    const data = await fetchJson<{ history: Array<{ t: number; p: number }> }>(url, 'CLOB API');
+    return (data.history ?? []).map((point) => ({
+      timestamp: new Date(point.t * 1000).toISOString(),
+      price: point.p,
+    }));
   }
 
   /**

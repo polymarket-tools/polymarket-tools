@@ -78,6 +78,11 @@ export interface OrderBook {
   asks: OrderBookEntry[];
 }
 
+export interface PricePoint {
+  timestamp: string;
+  price: number;
+}
+
 // ── Order Types ──────────────────────────────────────────────────
 
 export type OrderSide = 'BUY' | 'SELL';
