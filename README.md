@@ -1,5 +1,7 @@
 # polymarket-tools
 
+**[polymarket-tools.github.io/polymarket-tools](https://polymarket-tools.github.io/polymarket-tools/)** -- Install guide, templates, Claude prompts, and FAQ.
+
 The first n8n community node with full Polymarket trading support -- including EIP-712 order signing, AI agent integration, and workflow templates.
 
 Built for the [Polymarket Builder Program](https://builders.polymarket.com). Every trade placed through this node is tagged with a builder code for volume attribution.
