@@ -9,7 +9,10 @@
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [200, 60]
+      "position": [
+        200,
+        60
+      ]
     },
     {
       "parameters": {
@@ -26,7 +29,10 @@
       "name": "Every 2 Hours",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [200, 340]
+      "position": [
+        200,
+        340
+      ]
     },
     {
       "parameters": {
@@ -35,16 +41,31 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "q", "value": "polymarket n8n" },
-            { "name": "sort", "value": "new" },
-            { "name": "limit", "value": "10" },
-            { "name": "t", "value": "day" }
+            {
+              "name": "q",
+              "value": "polymarket n8n"
+            },
+            {
+              "name": "sort",
+              "value": "new"
+            },
+            {
+              "name": "limit",
+              "value": "10"
+            },
+            {
+              "name": "t",
+              "value": "day"
+            }
           ]
         },
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "User-Agent", "value": "n8n-mention-monitor/1.0" }
+            {
+              "name": "User-Agent",
+              "value": "n8n-mention-monitor/1.0"
+            }
           ]
         },
         "options": {
@@ -59,7 +80,10 @@
       "name": "Reddit: polymarket+n8n",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [460, 200]
+      "position": [
+        460,
+        200
+      ]
     },
     {
       "parameters": {
@@ -68,16 +92,31 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "q", "value": "polymarket automation" },
-            { "name": "sort", "value": "new" },
-            { "name": "limit", "value": "10" },
-            { "name": "t", "value": "day" }
+            {
+              "name": "q",
+              "value": "polymarket automation"
+            },
+            {
+              "name": "sort",
+              "value": "new"
+            },
+            {
+              "name": "limit",
+              "value": "10"
+            },
+            {
+              "name": "t",
+              "value": "day"
+            }
           ]
         },
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "User-Agent", "value": "n8n-mention-monitor/1.0" }
+            {
+              "name": "User-Agent",
+              "value": "n8n-mention-monitor/1.0"
+            }
           ]
         },
         "options": {
@@ -92,7 +131,10 @@
       "name": "Reddit: polymarket+automation",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [460, 380]
+      "position": [
+        460,
+        380
+      ]
     },
     {
       "parameters": {
@@ -101,16 +143,31 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "q", "value": "n8n-nodes-polymarket" },
-            { "name": "sort", "value": "new" },
-            { "name": "limit", "value": "5" },
-            { "name": "t", "value": "day" }
+            {
+              "name": "q",
+              "value": "n8n-nodes-polymarket"
+            },
+            {
+              "name": "sort",
+              "value": "new"
+            },
+            {
+              "name": "limit",
+              "value": "5"
+            },
+            {
+              "name": "t",
+              "value": "day"
+            }
           ]
         },
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "User-Agent", "value": "n8n-mention-monitor/1.0" }
+            {
+              "name": "User-Agent",
+              "value": "n8n-mention-monitor/1.0"
+            }
           ]
         },
         "options": {
@@ -125,7 +182,10 @@
       "name": "Reddit: n8n-nodes-polymarket",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [460, 560]
+      "position": [
+        460,
+        560
+      ]
     },
     {
       "parameters": {
@@ -135,7 +195,10 @@
       "name": "Merge & Deduplicate",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [740, 380]
+      "position": [
+        740,
+        380
+      ]
     },
     {
       "parameters": {
@@ -164,14 +227,16 @@
       "name": "Has New Mentions?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.1,
-      "position": [1000, 380]
+      "position": [
+        1000,
+        380
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "https://api.openai.com/v1/chat/completions",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "authentication": "predefinedCredentialType",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -184,17 +249,21 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: 'Draft a helpful Reddit reply to this post about Polymarket automation. Be genuinely helpful first. If our n8n node (n8n-nodes-polymarket-tools) is relevant, mention it naturally at the end. Don\\'t be salesy. Voice: experienced developer sharing a tool they use.' }, { role: 'user', content: 'Post title: ' + $json.title + '\\n\\nSubreddit: ' + $json.subreddit + '\\n\\nPost body: ' + ($json.selftext || '(no body)') }], temperature: 0.7, max_tokens: 500 }) }}",
-        "options": {}
+        "options": {},
+        "nodeCredentialType": "openAiApi"
       },
       "id": "mm-0001-0000-0000-000000000008",
       "name": "Draft Reply (OpenAI)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1260, 320],
+      "position": [
+        1260,
+        320
+      ],
       "credentials": {
-        "httpHeaderAuth": {
-          "id": "",
-          "name": "OpenAI API Key"
+        "openAiApi": {
+          "id": "uJfF3d8rzOWb7qlf",
+          "name": "OpenAI account"
         }
       }
     },
@@ -206,7 +275,10 @@
       "name": "Format Mention + Reply",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1520, 320]
+      "position": [
+        1520,
+        320
+      ]
     },
     {
       "parameters": {
@@ -218,11 +290,14 @@
       "name": "Send to Telegram",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1780, 320],
+      "position": [
+        1780,
+        320
+      ],
       "credentials": {
         "telegramApi": {
-          "id": "",
-          "name": "Telegram Bot"
+          "id": "rvkUdzYa8rUc1jyg",
+          "name": "Telegram account"
         }
       }
     }
@@ -333,11 +408,21 @@
     "executionOrder": "v1"
   },
   "tags": [
-    { "name": "polymarket" },
-    { "name": "marketing" },
-    { "name": "monitoring" },
-    { "name": "reddit" },
-    { "name": "telegram" }
+    {
+      "name": "polymarket"
+    },
+    {
+      "name": "marketing"
+    },
+    {
+      "name": "monitoring"
+    },
+    {
+      "name": "reddit"
+    },
+    {
+      "name": "telegram"
+    }
   ],
   "meta": {
     "instanceId": ""
