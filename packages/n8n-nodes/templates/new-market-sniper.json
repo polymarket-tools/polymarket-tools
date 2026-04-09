@@ -1,0 +1,286 @@
+{
+  "name": "Polymarket New Market Sniper -- AI Early Entry",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Polymarket New Market Sniper -- AI Early Entry\n\nAutomatically detects new Polymarket markets via the trigger node, uses AI to estimate fair value, and flags early entry opportunities.\n\n**Setup:**\n1. Configure your Polymarket API credentials\n2. Set up OpenAI API credentials for fair value estimation\n3. Configure Telegram credentials for alerts\n4. Optionally filter by tag in the Polymarket Trigger node (leave empty for all new markets)\n\n**How it works:**\n- Polymarket Trigger fires when a new market is created\n- Fetches full market details and current pricing/order book\n- Assesses liquidity depth from the order book\n- Sends market question + price + liquidity to OpenAI for fair value estimation\n- Compares AI fair price vs current market price to calculate edge\n- If edge > 10% AND AI confidence > 0.7, flags as an opportunity\n- Uses `validateOnly=true` by default -- will NOT place real orders\n\n**Early Entry Strategy:**\nNew markets on Polymarket often launch with thin liquidity and mispriced tokens. The first few hours offer the best edge before efficient market participants correct the price. However, thin liquidity also means wider spreads and higher slippage -- size positions accordingly.\n\n**Risk Warning:** New markets have low liquidity. You may not be able to exit positions easily. The AI fair value estimate is based on general knowledge and may be wrong. Always use `validateOnly=true` until you are confident in the strategy."
+      },
+      "id": "c9d0e1f2-9999-4c00-d000-000000000001",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [240, 20]
+    },
+    {
+      "parameters": {
+        "triggerWhen": "newMarket",
+        "tag": ""
+      },
+      "id": "c9d0e1f2-9999-4c00-d000-000000000002",
+      "name": "New Market Trigger",
+      "type": "n8n-nodes-polymarket-tools.polymarketTrigger",
+      "typeVersion": 1,
+      "position": [240, 340]
+    },
+    {
+      "parameters": {
+        "resource": "market",
+        "operation": "get",
+        "lookupBy": "conditionId",
+        "conditionId": "={{ $json.conditionId }}"
+      },
+      "id": "c9d0e1f2-9999-4c00-d000-000000000003",
+      "name": "Get Market Details",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [490, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract token ID from market details for pricing\nconst market = $input.first().json;\n\nlet clobTokenIds = market.clobTokenIds || [];\nif (typeof clobTokenIds === 'string') {\n  try { clobTokenIds = JSON.parse(clobTokenIds); } catch(e) { clobTokenIds = []; }\n}\n\nlet tokens = market.tokens || [];\nif (typeof tokens === 'string') {\n  try { tokens = JSON.parse(tokens); } catch(e) { tokens = []; }\n}\n\nconst firstTokenId = (tokens[0] && tokens[0].tokenId) || clobTokenIds[0] || '';\n\nreturn [{\n  json: {\n    question: market.question || market.title || 'Unknown',\n    conditionId: market.conditionId || '',\n    slug: market.slug || '',\n    volume: market.volume || 0,\n    tokenId: firstTokenId,\n    description: market.description || ''\n  }\n}];"
+      },
+      "id": "c9d0e1f2-9999-4c00-d000-000000000004",
+      "name": "Extract Token ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 340]
+    },
+    {
+      "parameters": {
+        "resource": "price",
+        "operation": "get",
+        "tokenId": "={{ $json.tokenId }}",
+        "includeData": ["midpoint", "orderBook"]
+      },
+      "id": "c9d0e1f2-9999-4c00-d000-000000000005",
+      "name": "Get Price & Order Book",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [990, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Assess liquidity from order book depth and prepare AI prompt\nconst priceData = $input.first().json;\nconst marketData = $('Extract Token ID').first().json;\n\nconst currentPrice = Number(priceData.price || priceData.midpoint || 0.5);\nconst orderBook = priceData.orderBook || {};\n\n// Calculate liquidity metrics\nconst bids = orderBook.bids || [];\nconst asks = orderBook.asks || [];\nconst bidDepth = bids.reduce((sum, b) => sum + Number(b.size || b[1] || 0), 0);\nconst askDepth = asks.reduce((sum, a) => sum + Number(a.size || a[1] || 0), 0);\nconst totalLiquidity = bidDepth + askDepth;\n\n// Best bid/ask for spread calculation\nconst bestBid = bids.length > 0 ? Number(bids[0].price || bids[0][0] || 0) : 0;\nconst bestAsk = asks.length > 0 ? Number(asks[0].price || asks[0][0] || 0) : 0;\nconst spread = bestAsk > 0 && bestBid > 0 ? (bestAsk - bestBid) : 0;\n\nreturn [{\n  json: {\n    question: marketData.question,\n    description: marketData.description,\n    conditionId: marketData.conditionId,\n    slug: marketData.slug,\n    tokenId: marketData.tokenId,\n    currentPrice,\n    totalLiquidity,\n    bidDepth,\n    askDepth,\n    spread: spread.toFixed(3),\n    bestBid: bestBid.toFixed(3),\n    bestAsk: bestAsk.toFixed(3)\n  }\n}];"
+      },
+      "id": "c9d0e1f2-9999-4c00-d000-000000000006",
+      "name": "Assess Liquidity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 340]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: 'New prediction market just launched on Polymarket:\\n\\nQuestion: ' + $json.question + '\\nDescription: ' + ($json.description || 'N/A').substring(0, 500) + '\\nCurrent price (YES): $' + Number($json.currentPrice).toFixed(3) + '\\nLiquidity: ' + Number($json.totalLiquidity).toFixed(0) + ' shares on the book\\nSpread: $' + $json.spread + '\\n\\nBased on your knowledge, what is the fair probability that this resolves YES? Respond with JSON only:\\n{\"fair_price\": 0.0 to 1.0, \"confidence\": 0.0 to 1.0, \"reasoning\": \"1-2 sentence explanation\"}' }], temperature: 0.3, max_tokens: 300 }) }}",
+        "options": {}
+      },
+      "id": "c9d0e1f2-9999-4c00-d000-000000000007",
+      "name": "AI Fair Value Estimate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1490, 340],
+      "credentials": {
+        "openAiApi": {
+          "id": "",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI response and calculate edge\nconst aiRaw = $input.first().json;\nconst marketData = $('Assess Liquidity').first().json;\n\nlet text = '';\ntry {\n  text = aiRaw.choices[0].message.content || '';\n} catch(e) {\n  text = JSON.stringify(aiRaw);\n}\n\nlet analysis = { fair_price: 0.5, confidence: 0, reasoning: 'Could not parse AI response' };\ntry {\n  const jsonMatch = text.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    analysis = JSON.parse(jsonMatch[0]);\n  }\n} catch(e) {\n  // Keep defaults\n}\n\nconst fairPrice = Number(analysis.fair_price) || 0.5;\nconst confidence = Number(analysis.confidence) || 0;\nconst edge = fairPrice - marketData.currentPrice;\nconst edgePercent = Math.abs(edge * 100);\nconst direction = edge > 0 ? 'BUY' : 'SELL';\n\nreturn [{\n  json: {\n    fairPrice: fairPrice.toFixed(3),\n    confidence,\n    reasoning: analysis.reasoning || '',\n    edge: edge.toFixed(3),\n    edgePercent: edgePercent.toFixed(1),\n    direction,\n    currentPrice: marketData.currentPrice,\n    question: marketData.question,\n    slug: marketData.slug,\n    tokenId: marketData.tokenId,\n    totalLiquidity: marketData.totalLiquidity,\n    spread: marketData.spread,\n    meetsThreshold: edgePercent > 10 && confidence > 0.7\n  }\n}];"
+      },
+      "id": "c9d0e1f2-9999-4c00-d000-000000000008",
+      "name": "Calculate Edge",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1740, 340]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "edge-threshold-001",
+              "leftValue": "={{ $json.meetsThreshold }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c9d0e1f2-9999-4c00-d000-000000000009",
+      "name": "Edge > 10% & Confidence > 0.7?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [1990, 340]
+    },
+    {
+      "parameters": {
+        "resource": "trading",
+        "operation": "placeOrder",
+        "tokenId": "={{ $json.tokenId }}",
+        "side": "={{ $json.direction }}",
+        "price": "={{ $json.direction === 'BUY' ? $json.currentPrice : $json.fairPrice }}",
+        "size": 10,
+        "validateOnly": true
+      },
+      "id": "c9d0e1f2-9999-4c00-d000-000000000010",
+      "name": "Place Order (Validate Only)",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [2240, 280]
+    },
+    {
+      "parameters": {
+        "chatId": "",
+        "text": "=*New Market Sniper Alert*\n\nNew market: {{ $json.question }}\nCurrent price: ${{ $json.currentPrice }}\nAI fair value: ${{ $json.fairPrice }}\nEdge: {{ $json.edgePercent }}% ({{ $json.direction }})\nConfidence: {{ $json.confidence }}\nLiquidity: {{ $json.totalLiquidity }} shares\nSpread: ${{ $json.spread }}\n\n_{{ $json.reasoning }}_\n\nhttps://polymarket.com/event/{{ $json.slug }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "c9d0e1f2-9999-4c00-d000-000000000011",
+      "name": "Send Alert to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2490, 280],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "New Market Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Market Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Market Details": {
+      "main": [
+        [
+          {
+            "node": "Extract Token ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Token ID": {
+      "main": [
+        [
+          {
+            "node": "Get Price & Order Book",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Price & Order Book": {
+      "main": [
+        [
+          {
+            "node": "Assess Liquidity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assess Liquidity": {
+      "main": [
+        [
+          {
+            "node": "AI Fair Value Estimate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Fair Value Estimate": {
+      "main": [
+        [
+          {
+            "node": "Calculate Edge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Edge": {
+      "main": [
+        [
+          {
+            "node": "Edge > 10% & Confidence > 0.7?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edge > 10% & Confidence > 0.7?": {
+      "main": [
+        [
+          {
+            "node": "Place Order (Validate Only)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Place Order (Validate Only)": {
+      "main": [
+        [
+          {
+            "node": "Send Alert to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "prediction-markets" },
+    { "name": "ai" },
+    { "name": "new-markets" },
+    { "name": "sniping" },
+    { "name": "telegram" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}

@@ -1,0 +1,290 @@
+{
+  "name": "Polymarket Market Making Bot -- Liquidity Rewards",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Polymarket Market Making Bot -- Liquidity Rewards\n\nMaintains two-sided (bid/ask) limit orders on a Polymarket market to earn liquidity rewards.\n\n**Setup:**\n1. Configure your Polymarket API credentials (private key, API key/secret/passphrase)\n2. Set the target `tokenId` in the Get Price node -- this is the token you want to make a market on\n3. Set the corresponding `marketId` in the Get Open Orders node\n4. Configure Telegram credentials for status alerts\n5. Adjust configurable parameters in the 'Calculate Bid/Ask' code node:\n   - `SPREAD_WIDTH`: distance from midpoint in cents (default: 0.02 = 2 cents each side)\n   - `ORDER_SIZE`: number of shares per order (default: 50)\n   - `DRIFT_THRESHOLD`: how far orders can drift before replacement (default: 0.01 = 1 cent)\n\n**How it works:**\n- Polls the market price and order book every 2 minutes\n- Calculates target bid/ask prices based on current midpoint +/- spread width\n- Checks existing open orders and compares to target prices\n- If orders have drifted beyond the threshold, cancels stale orders and replaces them\n- Sends Telegram status updates when orders are placed\n\n**Liquidity Rewards Program:**\nPolymarket rewards liquidity providers who maintain two-sided quotes. Two-sided quoting earns a 3x multiplier vs one-sided. Tighter spreads earn more. Rewards are distributed weekly in USDC.\n\n**Risk Warning:** Market making involves inventory risk -- you will accumulate positions as your orders fill. If the market moves sharply in one direction, you may be left holding a losing position. Start with small sizes and monitor closely. This workflow places REAL orders -- set `validateOnly: true` in the Place Order nodes to test first."
+      },
+      "id": "b8c9d0e1-8888-4b00-c000-000000000001",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [240, 20]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "b8c9d0e1-8888-4b00-c000-000000000002",
+      "name": "Every 2 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 340]
+    },
+    {
+      "parameters": {
+        "resource": "price",
+        "operation": "get",
+        "tokenId": "YOUR_TOKEN_ID_HERE",
+        "includeData": ["midpoint", "spread", "orderBook"]
+      },
+      "id": "b8c9d0e1-8888-4b00-c000-000000000003",
+      "name": "Get Current Price",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [490, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate target bid/ask prices based on midpoint and configurable spread\nconst priceData = $input.first().json;\n\n// === CONFIGURABLE PARAMETERS ===\nconst SPREAD_WIDTH = 0.02;    // 2 cents each side of midpoint\nconst ORDER_SIZE = 50;         // shares per order\nconst DRIFT_THRESHOLD = 0.01;  // 1 cent drift before replacing orders\n// ================================\n\nconst midpoint = Number(priceData.midpoint || priceData.price || 0.5);\nconst currentSpread = priceData.spread || 'N/A';\n\n// Calculate target prices, clamped to valid range [0.01, 0.99]\nconst targetBid = Math.max(0.01, Math.min(0.99, midpoint - SPREAD_WIDTH));\nconst targetAsk = Math.max(0.01, Math.min(0.99, midpoint + SPREAD_WIDTH));\n\nreturn [{\n  json: {\n    midpoint,\n    currentSpread,\n    targetBid: Number(targetBid.toFixed(3)),\n    targetAsk: Number(targetAsk.toFixed(3)),\n    orderSize: ORDER_SIZE,\n    driftThreshold: DRIFT_THRESHOLD,\n    spreadWidth: SPREAD_WIDTH,\n    orderBook: priceData.orderBook || null\n  }\n}];"
+      },
+      "id": "b8c9d0e1-8888-4b00-c000-000000000004",
+      "name": "Calculate Bid/Ask",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 340]
+    },
+    {
+      "parameters": {
+        "resource": "trading",
+        "operation": "getOpenOrders",
+        "marketId": "YOUR_MARKET_ID_HERE"
+      },
+      "id": "b8c9d0e1-8888-4b00-c000-000000000005",
+      "name": "Get Open Orders",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [990, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compare desired bid/ask with existing orders, determine if replacement needed\nconst orders = $input.all();\nconst targets = $('Calculate Bid/Ask').first().json;\n\nconst DRIFT = targets.driftThreshold;\nlet needsReplacement = false;\nlet staleOrderIds = [];\nlet existingBid = null;\nlet existingAsk = null;\n\n// Find our existing bid and ask orders\nfor (const item of orders) {\n  const o = item.json;\n  if (!o.orderId && !o.id) continue;\n\n  const price = Number(o.price || 0);\n  const side = (o.side || '').toUpperCase();\n\n  if (side === 'BUY' || price < targets.midpoint) {\n    existingBid = { id: o.orderId || o.id, price, side: 'BUY' };\n  } else if (side === 'SELL' || price > targets.midpoint) {\n    existingAsk = { id: o.orderId || o.id, price, side: 'SELL' };\n  }\n}\n\n// Check if bid has drifted\nif (existingBid && Math.abs(existingBid.price - targets.targetBid) > DRIFT) {\n  staleOrderIds.push(existingBid.id);\n  needsReplacement = true;\n}\nif (!existingBid) needsReplacement = true;\n\n// Check if ask has drifted\nif (existingAsk && Math.abs(existingAsk.price - targets.targetAsk) > DRIFT) {\n  staleOrderIds.push(existingAsk.id);\n  needsReplacement = true;\n}\nif (!existingAsk) needsReplacement = true;\n\n// Estimate daily reward (rough: spread * size * fills_per_day * 3x multiplier)\nconst estimatedDailyReward = (targets.spreadWidth * 2 * targets.orderSize * 24 * 0.1 * 3).toFixed(2);\n\nreturn [{\n  json: {\n    needsReplacement,\n    staleOrderIds,\n    staleOrderId: staleOrderIds[0] || '',\n    existingBid: existingBid ? existingBid.price : null,\n    existingAsk: existingAsk ? existingAsk.price : null,\n    targetBid: targets.targetBid,\n    targetAsk: targets.targetAsk,\n    orderSize: targets.orderSize,\n    midpoint: targets.midpoint,\n    currentSpread: targets.currentSpread,\n    estimatedDailyReward\n  }\n}];"
+      },
+      "id": "b8c9d0e1-8888-4b00-c000-000000000006",
+      "name": "Check Order Drift",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 340]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "drift-check-001",
+              "leftValue": "={{ $json.needsReplacement }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b8c9d0e1-8888-4b00-c000-000000000007",
+      "name": "Need to Replace?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [1490, 340]
+    },
+    {
+      "parameters": {
+        "resource": "trading",
+        "operation": "cancelOrder",
+        "orderId": "={{ $json.staleOrderId }}"
+      },
+      "id": "b8c9d0e1-8888-4b00-c000-000000000008",
+      "name": "Cancel Stale Order",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [1740, 280]
+    },
+    {
+      "parameters": {
+        "resource": "trading",
+        "operation": "placeOrder",
+        "tokenId": "YOUR_TOKEN_ID_HERE",
+        "side": "BUY",
+        "price": "={{ $('Check Order Drift').first().json.targetBid }}",
+        "size": "={{ $('Check Order Drift').first().json.orderSize }}"
+      },
+      "id": "b8c9d0e1-8888-4b00-c000-000000000009",
+      "name": "Place Bid Order",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [1990, 220]
+    },
+    {
+      "parameters": {
+        "resource": "trading",
+        "operation": "placeOrder",
+        "tokenId": "YOUR_TOKEN_ID_HERE",
+        "side": "SELL",
+        "price": "={{ $('Check Order Drift').first().json.targetAsk }}",
+        "size": "={{ $('Check Order Drift').first().json.orderSize }}"
+      },
+      "id": "b8c9d0e1-8888-4b00-c000-000000000010",
+      "name": "Place Ask Order",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [1990, 420]
+    },
+    {
+      "parameters": {
+        "chatId": "",
+        "text": "=*Market Making Update*\n\nMidpoint: ${{ $('Check Order Drift').first().json.midpoint }}\nBid placed: ${{ $('Check Order Drift').first().json.targetBid }} x {{ $('Check Order Drift').first().json.orderSize }}\nAsk placed: ${{ $('Check Order Drift').first().json.targetAsk }} x {{ $('Check Order Drift').first().json.orderSize }}\nSpread: {{ $('Check Order Drift').first().json.currentSpread }}\nEst. daily reward: ~${{ $('Check Order Drift').first().json.estimatedDailyReward }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "b8c9d0e1-8888-4b00-c000-000000000011",
+      "name": "Send Status to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2240, 320],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 2 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Get Current Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Current Price": {
+      "main": [
+        [
+          {
+            "node": "Calculate Bid/Ask",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Bid/Ask": {
+      "main": [
+        [
+          {
+            "node": "Get Open Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Open Orders": {
+      "main": [
+        [
+          {
+            "node": "Check Order Drift",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Order Drift": {
+      "main": [
+        [
+          {
+            "node": "Need to Replace?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Need to Replace?": {
+      "main": [
+        [
+          {
+            "node": "Cancel Stale Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Cancel Stale Order": {
+      "main": [
+        [
+          {
+            "node": "Place Bid Order",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Place Ask Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Place Bid Order": {
+      "main": [
+        [
+          {
+            "node": "Send Status to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Place Ask Order": {
+      "main": [
+        [
+          {
+            "node": "Send Status to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "prediction-markets" },
+    { "name": "market-making" },
+    { "name": "liquidity" },
+    { "name": "trading" },
+    { "name": "telegram" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}

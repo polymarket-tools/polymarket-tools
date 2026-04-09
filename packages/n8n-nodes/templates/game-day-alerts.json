@@ -1,0 +1,261 @@
+{
+  "name": "Game Day Alert Hub -- Sports Odds + Polymarket",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Game Day Alert Hub -- Sports Odds + Polymarket\n\nCompares Polymarket sports prediction markets against traditional sportsbook odds, flags significant line differences and price movements.\n\n**Setup:**\n1. Get a free API key from The Odds API (https://the-odds-api.com) -- 500 requests/month on free tier\n2. Set the API key in the 'Fetch Sportsbook Odds' HTTP Request node URL\n3. Configure the sport key in the URL (default: `americanfootball_nfl`). Options: `basketball_nba`, `baseball_mlb`, `icehockey_nhl`, `soccer_epl`, etc.\n4. Set the Polymarket search query in the Search node to match your sport (e.g., 'NBA', 'NFL', 'Premier League')\n5. Configure Telegram credentials for alerts\n6. Optionally configure a SportsData.io or ESPN API key for injury/news updates\n\n**How it works:**\n- Polls every 10 minutes during game hours\n- Searches Polymarket for active sports markets matching your query\n- Fetches sportsbook odds from The Odds API (aggregates DraftKings, FanDuel, etc.)\n- Matches games between platforms by team name\n- Calculates line differences (>3% threshold) and Polymarket price changes (>5 cent move using static data)\n- Sends alerts when significant moves or discrepancies are detected\n\n**Free API Tiers:**\n- The Odds API: 500 requests/month free (at 10min intervals = ~144/day, budget ~3 days/month of continuous polling, or poll only on game days)\n- SportsData.io: Free tier available for injury data (optional)\n- ESPN API: Unofficial but free endpoints for news (optional)"
+      },
+      "id": "d0e1f2a3-1010-4d00-e000-000000000001",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [240, 10]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "id": "d0e1f2a3-1010-4d00-e000-000000000002",
+      "name": "Every 10 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 340]
+    },
+    {
+      "parameters": {
+        "resource": "market",
+        "operation": "search",
+        "query": "NFL",
+        "filters": {
+          "active": true,
+          "tag": "Sports",
+          "limit": 10
+        }
+      },
+      "id": "d0e1f2a3-1010-4d00-e000-000000000003",
+      "name": "Search Sports Markets",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [490, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract Polymarket sports markets and their current prices\nconst markets = $input.all();\nconst results = [];\n\nfor (const item of markets) {\n  const m = item.json;\n  const question = m.question || m.title || '';\n\n  let outcomePrices = m.outcomePrices || [];\n  if (typeof outcomePrices === 'string') {\n    try { outcomePrices = JSON.parse(outcomePrices); } catch(e) { outcomePrices = []; }\n  }\n\n  let outcomes = m.outcomes || [];\n  if (typeof outcomes === 'string') {\n    try { outcomes = JSON.parse(outcomes); } catch(e) { outcomes = []; }\n  }\n\n  let clobTokenIds = m.clobTokenIds || [];\n  if (typeof clobTokenIds === 'string') {\n    try { clobTokenIds = JSON.parse(clobTokenIds); } catch(e) { clobTokenIds = []; }\n  }\n\n  const yesPrice = Number(outcomePrices[0] || 0);\n\n  // Extract team names from question (heuristic: look for 'vs' or 'win' patterns)\n  const teamMatch = question.match(/will\\s+(?:the\\s+)?(.+?)\\s+(?:win|beat|defeat)/i)\n    || question.match(/(.+?)\\s+vs?\\.?\\s+(.+)/i);\n\n  const teamName = teamMatch ? teamMatch[1].trim() : question.substring(0, 30);\n\n  results.push({\n    question,\n    conditionId: m.conditionId || '',\n    slug: m.slug || '',\n    yesPrice,\n    outcomes,\n    tokenId: clobTokenIds[0] || '',\n    teamName,\n    volume: Number(m.volume || 0)\n  });\n}\n\nreturn [{\n  json: {\n    polymarketGames: results,\n    gameCount: results.length\n  }\n}];"
+      },
+      "id": "d0e1f2a3-1010-4d00-e000-000000000004",
+      "name": "Extract Market Prices",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 340]
+    },
+    {
+      "parameters": {
+        "url": "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds/?apiKey=YOUR_KEY_HERE&regions=us&markets=h2h",
+        "options": {}
+      },
+      "id": "d0e1f2a3-1010-4d00-e000-000000000005",
+      "name": "Fetch Sportsbook Odds",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [990, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Match games between Polymarket and sportsbooks, calculate line differences\nconst oddsRaw = $input.first().json;\nconst polyData = $('Extract Market Prices').first().json;\nconst polyGames = polyData.polymarketGames || [];\nconst staticData = $getWorkflowStaticData('global');\n\n// Parse sportsbook odds (The Odds API returns array of games)\nconst sportsGames = Array.isArray(oddsRaw) ? oddsRaw : (oddsRaw.data || [oddsRaw]);\n\n// Helper: convert American moneyline to implied probability\nfunction moneylineToProbability(ml) {\n  ml = Number(ml);\n  if (ml > 0) return 100 / (ml + 100);\n  if (ml < 0) return Math.abs(ml) / (Math.abs(ml) + 100);\n  return 0.5;\n}\n\n// Helper: fuzzy team name matching\nfunction teamMatch(polyName, bookName) {\n  const pLower = polyName.toLowerCase().replace(/[^a-z]/g, '');\n  const bLower = bookName.toLowerCase().replace(/[^a-z]/g, '');\n  return pLower.includes(bLower) || bLower.includes(pLower) || pLower === bLower;\n}\n\nconst matches = [];\n\nfor (const polyGame of polyGames) {\n  for (const sportsGame of sportsGames) {\n    const homeTeam = sportsGame.home_team || '';\n    const awayTeam = sportsGame.away_team || '';\n\n    if (teamMatch(polyGame.teamName, homeTeam) || teamMatch(polyGame.teamName, awayTeam)) {\n      // Get average odds across bookmakers\n      const bookmakers = sportsGame.bookmakers || [];\n      let avgOdds = 0.5;\n      let bookCount = 0;\n\n      for (const book of bookmakers) {\n        const h2h = (book.markets || []).find(m => m.key === 'h2h');\n        if (h2h && h2h.outcomes) {\n          // Find matching team outcome\n          const matchingOutcome = h2h.outcomes.find(o =>\n            teamMatch(polyGame.teamName, o.name)\n          );\n          if (matchingOutcome) {\n            avgOdds += moneylineToProbability(matchingOutcome.price);\n            bookCount++;\n          }\n        }\n      }\n\n      if (bookCount > 0) avgOdds = avgOdds / bookCount;\n\n      const lineDiff = Math.abs(polyGame.yesPrice - avgOdds);\n      const lineDiffPercent = (lineDiff * 100).toFixed(1);\n\n      // Check for price movement since last poll\n      const priceKey = `poly_${polyGame.conditionId}`;\n      const lastPolyPrice = staticData[priceKey] || polyGame.yesPrice;\n      const priceChange = Math.abs(polyGame.yesPrice - lastPolyPrice);\n      staticData[priceKey] = polyGame.yesPrice;\n\n      matches.push({\n        question: polyGame.question,\n        teamName: polyGame.teamName,\n        slug: polyGame.slug,\n        polyPrice: polyGame.yesPrice.toFixed(3),\n        bookOdds: avgOdds.toFixed(3),\n        lineDiff: lineDiffPercent,\n        priceChange: priceChange.toFixed(3),\n        priceDirection: polyGame.yesPrice > lastPolyPrice ? 'UP' : polyGame.yesPrice < lastPolyPrice ? 'DOWN' : 'FLAT',\n        gameInfo: `${awayTeam} @ ${homeTeam}`,\n        commenceTime: sportsGame.commence_time || ''\n      });\n    }\n  }\n}\n\n// Flag significant moves: >3% line diff OR >5 cent Polymarket price change\nconst significantMoves = matches.filter(m =>\n  Number(m.lineDiff) > 3 || Number(m.priceChange) > 0.05\n);\n\nif (significantMoves.length === 0) {\n  return [{ json: { _noMoves: true } }];\n}\n\nlet message = 'Game Day Alerts:\\n\\n';\nfor (const m of significantMoves) {\n  message += `${m.gameInfo}\\n`;\n  message += `  Polymarket: ${m.polyPrice} | Books: ${m.bookOdds} | Diff: ${m.lineDiff}%\\n`;\n  if (Number(m.priceChange) > 0.05) {\n    message += `  Price moved ${m.priceDirection} $${m.priceChange}\\n`;\n  }\n  message += `  https://polymarket.com/event/${m.slug}\\n\\n`;\n}\nmessage += `${significantMoves.length} significant move(s) detected.`;\n\nreturn [{\n  json: {\n    message,\n    moves: significantMoves,\n    moveCount: significantMoves.length,\n    _noMoves: false\n  }\n}];"
+      },
+      "id": "d0e1f2a3-1010-4d00-e000-000000000006",
+      "name": "Compare Odds & Detect Moves",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 340]
+    },
+    {
+      "parameters": {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "d0e1f2a3-1010-4d00-e000-000000000007",
+      "name": "Fetch Injury/News (Optional)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1490, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine odds comparison with injury/news data, format final alert\nconst newsRaw = $input.first().json;\nconst moveData = $('Compare Odds & Detect Moves').first().json;\n\n// If no moves were found, pass through\nif (moveData._noMoves) {\n  return [{ json: { _noMoves: true } }];\n}\n\n// Extract relevant news headlines\nlet newsItems = [];\ntry {\n  const articles = newsRaw.articles || [];\n  newsItems = articles.slice(0, 5).map(a => a.headline || a.title || '').filter(Boolean);\n} catch(e) {\n  // ESPN API may not return expected format\n}\n\nlet message = moveData.message;\nif (newsItems.length > 0) {\n  message += '\\n---\\nRecent News:\\n';\n  for (const headline of newsItems) {\n    message += `  - ${headline}\\n`;\n  }\n}\n\nreturn [{\n  json: {\n    message,\n    moveCount: moveData.moveCount,\n    _noMoves: false\n  }\n}];"
+      },
+      "id": "d0e1f2a3-1010-4d00-e000-000000000008",
+      "name": "Combine Odds + News",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1740, 340]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "moves-check-001",
+              "leftValue": "={{ $json._noMoves }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notTrue"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d0e1f2a3-1010-4d00-e000-000000000009",
+      "name": "Significant Moves?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [1990, 340]
+    },
+    {
+      "parameters": {
+        "chatId": "",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "d0e1f2a3-1010-4d00-e000-000000000010",
+      "name": "Send Game Day Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2240, 280],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 10 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Search Sports Markets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Sports Markets": {
+      "main": [
+        [
+          {
+            "node": "Extract Market Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Market Prices": {
+      "main": [
+        [
+          {
+            "node": "Fetch Sportsbook Odds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Sportsbook Odds": {
+      "main": [
+        [
+          {
+            "node": "Compare Odds & Detect Moves",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare Odds & Detect Moves": {
+      "main": [
+        [
+          {
+            "node": "Fetch Injury/News (Optional)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Injury/News (Optional)": {
+      "main": [
+        [
+          {
+            "node": "Combine Odds + News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Odds + News": {
+      "main": [
+        [
+          {
+            "node": "Significant Moves?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Significant Moves?": {
+      "main": [
+        [
+          {
+            "node": "Send Game Day Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "prediction-markets" },
+    { "name": "sports" },
+    { "name": "odds" },
+    { "name": "telegram" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}

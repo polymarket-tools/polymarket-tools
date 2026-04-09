@@ -1,0 +1,257 @@
+{
+  "name": "BTC Momentum Scalper -- Exchange Price to Polymarket",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## BTC Momentum Scalper -- Exchange Price to Polymarket\n\nCompares real-time BTC price momentum from Binance against Polymarket BTC short-term markets to detect pricing edges.\n\n**Setup:**\n1. Configure Telegram credentials for alerts\n2. No API keys needed -- Binance ticker endpoint is free and unauthenticated\n3. Adjust the edge threshold in the Code node (default: 1%)\n\n**How it works:**\n- Polls Binance BTCUSDT price every minute\n- Calculates price change % from last poll (stored in workflow static data)\n- Searches Polymarket for active BTC markets (5-min, 15-min up/down)\n- Compares exchange momentum direction vs Polymarket token pricing\n- Alerts when exchange price leads Polymarket by > 1%\n\n**Important:** This is an alert-only workflow -- it does NOT place orders. BTC short-term markets on Polymarket are extremely fast-moving and thin. Speed matters: n8n polling at 1-minute intervals may be too slow for true scalping. Use this for awareness, not execution.\n\n**BTC 5-min Markets:** Polymarket runs short-duration BTC prediction markets (e.g., 'Will BTC be above $X in 5 minutes?'). These resolve quickly and pricing can lag exchange moves, creating brief edges."
+      },
+      "id": "a7b8c9d0-7777-4a00-b000-000000000001",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [240, 40]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "a7b8c9d0-7777-4a00-b000-000000000002",
+      "name": "Every 1 Minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 340]
+    },
+    {
+      "parameters": {
+        "url": "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+        "options": {}
+      },
+      "id": "a7b8c9d0-7777-4a00-b000-000000000003",
+      "name": "Binance BTC Price",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [490, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate price change % from last poll using workflow static data\nconst currentPrice = Number($input.first().json.price || 0);\nconst staticData = $getWorkflowStaticData('global');\n\nconst lastPrice = staticData.lastBtcPrice || currentPrice;\nconst lastTimestamp = staticData.lastBtcTimestamp || Date.now();\n\nconst changePercent = lastPrice > 0 ? ((currentPrice - lastPrice) / lastPrice) * 100 : 0;\nconst direction = changePercent > 0 ? 'UP' : changePercent < 0 ? 'DOWN' : 'FLAT';\nconst timeDeltaSec = (Date.now() - lastTimestamp) / 1000;\n\n// Store current price for next poll\nstaticData.lastBtcPrice = currentPrice;\nstaticData.lastBtcTimestamp = Date.now();\n\n// Track rolling 5-minute momentum (store last 5 prices)\nif (!staticData.priceHistory) staticData.priceHistory = [];\nstaticData.priceHistory.push({ price: currentPrice, time: Date.now() });\n// Keep only last 10 minutes of data\nconst tenMinAgo = Date.now() - (10 * 60 * 1000);\nstaticData.priceHistory = staticData.priceHistory.filter(p => p.time > tenMinAgo);\n\n// Calculate 5-minute momentum\nconst fiveMinAgo = Date.now() - (5 * 60 * 1000);\nconst fiveMinPrices = staticData.priceHistory.filter(p => p.time <= fiveMinAgo);\nconst fiveMinPrice = fiveMinPrices.length > 0 ? fiveMinPrices[fiveMinPrices.length - 1].price : currentPrice;\nconst fiveMinChange = fiveMinPrice > 0 ? ((currentPrice - fiveMinPrice) / fiveMinPrice) * 100 : 0;\nconst fiveMinDirection = fiveMinChange > 0 ? 'UP' : fiveMinChange < 0 ? 'DOWN' : 'FLAT';\n\nreturn [{\n  json: {\n    btcPrice: currentPrice,\n    lastPrice,\n    changePercent: changePercent.toFixed(4),\n    direction,\n    fiveMinChange: fiveMinChange.toFixed(4),\n    fiveMinDirection,\n    timeDeltaSec: timeDeltaSec.toFixed(0)\n  }\n}];"
+      },
+      "id": "a7b8c9d0-7777-4a00-b000-000000000004",
+      "name": "Calculate Momentum",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 340]
+    },
+    {
+      "parameters": {
+        "resource": "market",
+        "operation": "search",
+        "query": "BTC",
+        "filters": {
+          "active": true,
+          "limit": 5
+        }
+      },
+      "id": "a7b8c9d0-7777-4a00-b000-000000000005",
+      "name": "Search BTC Markets",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [990, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Find the BTC short-term market and extract token IDs\nconst markets = $input.all();\nconst momentum = $('Calculate Momentum').first().json;\n\nif (markets.length === 0) {\n  return [{ json: { _noMatch: true } }];\n}\n\n// Look for 5-minute or short-term BTC markets\nlet bestMarket = null;\nfor (const item of markets) {\n  const m = item.json;\n  const q = (m.question || '').toLowerCase();\n  // Prefer short-duration markets\n  if (q.includes('5 min') || q.includes('5-min') || q.includes('15 min') || q.includes('15-min') || q.includes('next')) {\n    bestMarket = m;\n    break;\n  }\n}\n\n// Fallback to first BTC market if no short-term found\nif (!bestMarket) bestMarket = markets[0].json;\n\nlet clobTokenIds = bestMarket.clobTokenIds || [];\nif (typeof clobTokenIds === 'string') {\n  try { clobTokenIds = JSON.parse(clobTokenIds); } catch(e) { clobTokenIds = []; }\n}\n\nlet outcomes = bestMarket.outcomes || [];\nif (typeof outcomes === 'string') {\n  try { outcomes = JSON.parse(outcomes); } catch(e) { outcomes = []; }\n}\n\nlet outcomePrices = bestMarket.outcomePrices || [];\nif (typeof outcomePrices === 'string') {\n  try { outcomePrices = JSON.parse(outcomePrices); } catch(e) { outcomePrices = []; }\n}\n\n// YES token is typically index 0\nconst yesTokenId = clobTokenIds[0] || '';\nconst noTokenId = clobTokenIds[1] || '';\n\nreturn [{\n  json: {\n    question: bestMarket.question || 'Unknown',\n    conditionId: bestMarket.conditionId || '',\n    slug: bestMarket.slug || '',\n    yesTokenId,\n    noTokenId,\n    outcomes,\n    outcomePrices,\n    btcPrice: momentum.btcPrice,\n    changePercent: momentum.changePercent,\n    direction: momentum.direction,\n    fiveMinChange: momentum.fiveMinChange,\n    fiveMinDirection: momentum.fiveMinDirection,\n    _noMatch: false\n  }\n}];"
+      },
+      "id": "a7b8c9d0-7777-4a00-b000-000000000006",
+      "name": "Find BTC Short-Term Market",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 340]
+    },
+    {
+      "parameters": {
+        "resource": "price",
+        "operation": "get",
+        "tokenId": "={{ $json.yesTokenId }}",
+        "includeData": ["midpoint", "spread"]
+      },
+      "id": "a7b8c9d0-7777-4a00-b000-000000000007",
+      "name": "Get Market Price",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [1490, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compare exchange momentum vs Polymarket pricing, detect edge\nconst priceData = $input.first().json;\nconst marketData = $('Find BTC Short-Term Market').first().json;\n\nconst polyPrice = Number(priceData.price || priceData.midpoint || 0);\nconst fiveMinChange = Number(marketData.fiveMinChange || 0);\nconst direction = marketData.fiveMinDirection;\n\n// If exchange is moving UP, Polymarket YES should be higher\n// If exchange is moving DOWN, Polymarket YES should be lower\n// Edge = how much Polymarket lags the exchange signal\nlet impliedPolyDirection = polyPrice > 0.5 ? 'UP' : 'DOWN';\nlet edgePercent = 0;\n\nif (direction === 'UP' && polyPrice < 0.5) {\n  // Exchange says up, Polymarket says no -- potential edge\n  edgePercent = Math.abs(fiveMinChange);\n} else if (direction === 'DOWN' && polyPrice > 0.5) {\n  // Exchange says down, Polymarket says yes -- potential edge\n  edgePercent = Math.abs(fiveMinChange);\n} else {\n  // Aligned, no edge\n  edgePercent = 0;\n}\n\nconst hasEdge = edgePercent > 1.0; // 1% threshold\n\nreturn [{\n  json: {\n    btcPrice: marketData.btcPrice,\n    fiveMinChange,\n    exchangeDirection: direction,\n    polyPrice: polyPrice.toFixed(3),\n    impliedPolyDirection,\n    edgePercent: edgePercent.toFixed(2),\n    hasEdge,\n    question: marketData.question,\n    slug: marketData.slug,\n    spread: priceData.spread || 'N/A'\n  }\n}];"
+      },
+      "id": "a7b8c9d0-7777-4a00-b000-000000000008",
+      "name": "Detect Edge",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1740, 340]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "edge-check-001",
+              "leftValue": "={{ $json.hasEdge }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a7b8c9d0-7777-4a00-b000-000000000009",
+      "name": "Edge Detected?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [1990, 340]
+    },
+    {
+      "parameters": {
+        "chatId": "",
+        "text": "=*BTC Momentum Alert*\n\nExchange: BTC at ${{ $json.btcPrice }} -- {{ $json.exchangeDirection }} {{ $json.fiveMinChange }}% (5min)\nPolymarket: {{ $json.question }}\nYES price: ${{ $json.polyPrice }}\nEdge: {{ $json.edgePercent }}%\nSpread: {{ $json.spread }}\n\nhttps://polymarket.com/event/{{ $json.slug }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "a7b8c9d0-7777-4a00-b000-000000000010",
+      "name": "Send Telegram Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2240, 280],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 1 Minute": {
+      "main": [
+        [
+          {
+            "node": "Binance BTC Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Binance BTC Price": {
+      "main": [
+        [
+          {
+            "node": "Calculate Momentum",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Momentum": {
+      "main": [
+        [
+          {
+            "node": "Search BTC Markets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search BTC Markets": {
+      "main": [
+        [
+          {
+            "node": "Find BTC Short-Term Market",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find BTC Short-Term Market": {
+      "main": [
+        [
+          {
+            "node": "Get Market Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Market Price": {
+      "main": [
+        [
+          {
+            "node": "Detect Edge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Edge": {
+      "main": [
+        [
+          {
+            "node": "Edge Detected?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edge Detected?": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "prediction-markets" },
+    { "name": "btc" },
+    { "name": "crypto" },
+    { "name": "scalping" },
+    { "name": "telegram" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}
