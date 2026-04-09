@@ -1,0 +1,238 @@
+{
+  "name": "Polymarket Copy Trader -- Mirror Whale Wallets",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Polymarket Copy Trader -- Mirror Whale Wallets\n\nAutomatically mirrors trades from top-performing Polymarket wallets. Checks the leaderboard every 5 minutes, detects new trades from whale wallets, and places matching orders.\n\n**Setup:**\n1. Configure your Polymarket credentials (API key + private key for trading)\n2. Set up Telegram bot token and chat ID for trade alerts\n3. Adjust position sizing in the \"Calculate Position & Format\" code node (default: 10% of whale size)\n\n**Position Sizing:**\nEdit the `POSITION_SIZE_PCT` variable in the code node to control how much of the whale's position you mirror. Default is 0.10 (10%). Set to 0.01 for 1%, 0.5 for 50%, etc.\n\n**Safety:**\n- `validateOnly: true` is enabled by default -- orders are simulated but NOT placed\n- To go live, change `validateOnly` to `false` in the Place Order node\n- Always start with small sizes and monitor for a few days before going live\n\n**How it works:**\n1. Fetches top 5 traders from this week's leaderboard\n2. Stores known wallet addresses in workflow static data\n3. Queries recent trades for each whale wallet\n4. Filters for trades made in the last 5 minutes\n5. Calculates a scaled position size based on your configured percentage\n6. Places a mirror order (with validateOnly=true for safety)\n7. Sends a Telegram alert with trade details"
+      },
+      "id": "ct-0001-0000-0000-000000000001",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [240, 80]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "ct-0001-0000-0000-000000000002",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 380]
+    },
+    {
+      "parameters": {
+        "resource": "data",
+        "operation": "getLeaderboard",
+        "timePeriod": "week",
+        "limit": 5
+      },
+      "id": "ct-0001-0000-0000-000000000003",
+      "name": "Get Top 5 Leaderboard",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [490, 380]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract proxyWallet addresses from leaderboard and store in workflow static data\nconst leaders = $input.all();\nconst staticData = $getWorkflowStaticData('global');\n\nif (!staticData.trackedWallets) {\n  staticData.trackedWallets = {};\n}\n\nconst wallets = [];\nfor (const item of leaders) {\n  const addr = item.json.proxyWallet;\n  if (!addr) continue;\n\n  // Store wallet info for reference\n  staticData.trackedWallets[addr] = {\n    userName: item.json.userName || 'Unknown',\n    rank: item.json.rank || 0,\n    pnl: item.json.pnl || 0,\n    volume: item.json.volume || 0,\n    lastSeen: new Date().toISOString()\n  };\n\n  wallets.push({\n    json: {\n      walletAddress: addr,\n      userName: item.json.userName || 'Unknown',\n      rank: item.json.rank || 0,\n      pnl: item.json.pnl || 0\n    }\n  });\n}\n\nreturn wallets;"
+      },
+      "id": "ct-0001-0000-0000-000000000004",
+      "name": "Extract & Store Wallets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 380]
+    },
+    {
+      "parameters": {
+        "resource": "data",
+        "operation": "getWalletTrades",
+        "walletAddress": "={{ $json.walletAddress }}",
+        "limit": 10
+      },
+      "id": "ct-0001-0000-0000-000000000005",
+      "name": "Get Whale Trades",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [990, 380]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter trades from last 5 minutes and calculate mirror position size\nconst POSITION_SIZE_PCT = 0.10; // Mirror 10% of whale's position size\n\nconst trades = $input.all();\nconst fiveMinAgo = Date.now() - (5 * 60 * 1000);\nconst mirrorTrades = [];\n\nfor (const item of trades) {\n  const t = item.json;\n  const tradeTime = new Date(t.timestamp || t.createdAt || 0).getTime();\n\n  if (tradeTime > fiveMinAgo) {\n    const whaleSize = Number(t.size || t.amount || 0);\n    const mirrorSize = Math.max(1, Math.round(whaleSize * POSITION_SIZE_PCT));\n    const side = (t.side || 'BUY').toUpperCase();\n    const price = Number(t.price || 0);\n    const tokenId = t.tokenId || t.asset || '';\n    const market = t.market || t.question || t.conditionId || 'Unknown';\n    const userName = t.userName || 'Whale';\n\n    mirrorTrades.push({\n      json: {\n        tokenId,\n        side,\n        price: price.toFixed(2),\n        whaleSize: whaleSize.toFixed(2),\n        mirrorSize: mirrorSize.toString(),\n        market,\n        userName,\n        timestamp: t.timestamp || t.createdAt,\n        alertMessage: `Copy Trade: ${userName} ${side === 'BUY' ? 'bought' : 'sold'} ${market}\\nWhale size: ${whaleSize} | Your size: ${mirrorSize} (${POSITION_SIZE_PCT * 100}%)\\nPrice: $${price.toFixed(2)} | Token: ${tokenId}`\n      }\n    });\n  }\n}\n\nif (mirrorTrades.length === 0) {\n  return [{ json: { _skip: true } }];\n}\n\nreturn mirrorTrades;"
+      },
+      "id": "ct-0001-0000-0000-000000000006",
+      "name": "Calculate Position & Format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 380]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "ct-new-trades-check",
+              "leftValue": "={{ $json._skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notTrue"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ct-0001-0000-0000-000000000007",
+      "name": "Has New Trades?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [1490, 380]
+    },
+    {
+      "parameters": {
+        "resource": "trading",
+        "operation": "placeOrder",
+        "tokenId": "={{ $json.tokenId }}",
+        "side": "={{ $json.side }}",
+        "price": "={{ $json.price }}",
+        "size": "={{ $json.mirrorSize }}",
+        "timeInForce": "GTC",
+        "validateOnly": true
+      },
+      "id": "ct-0001-0000-0000-000000000008",
+      "name": "Place Mirror Order",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [1740, 320]
+    },
+    {
+      "parameters": {
+        "chatId": "",
+        "text": "={{ $json.alertMessage }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "ct-0001-0000-0000-000000000009",
+      "name": "Send Trade Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1990, 320],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Get Top 5 Leaderboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Top 5 Leaderboard": {
+      "main": [
+        [
+          {
+            "node": "Extract & Store Wallets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract & Store Wallets": {
+      "main": [
+        [
+          {
+            "node": "Get Whale Trades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Whale Trades": {
+      "main": [
+        [
+          {
+            "node": "Calculate Position & Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Position & Format": {
+      "main": [
+        [
+          {
+            "node": "Has New Trades?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has New Trades?": {
+      "main": [
+        [
+          {
+            "node": "Place Mirror Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Place Mirror Order": {
+      "main": [
+        [
+          {
+            "node": "Send Trade Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "prediction-markets" },
+    { "name": "copy-trading" },
+    { "name": "telegram" },
+    { "name": "whale-tracking" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}
