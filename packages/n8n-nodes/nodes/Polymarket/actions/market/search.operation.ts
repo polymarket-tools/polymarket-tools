@@ -6,7 +6,6 @@ export const searchMarketFields: INodeProperties[] = [
     displayName: 'Query',
     name: 'query',
     type: 'string',
-    required: true,
     default: '',
     placeholder: 'e.g. bitcoin, presidential election, NBA',
     description:
