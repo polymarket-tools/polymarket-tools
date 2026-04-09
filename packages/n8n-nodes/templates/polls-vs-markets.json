@@ -1,0 +1,213 @@
+{
+  "name": "Election Polls vs Polymarket Divergence Alert",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Election Polls vs Polymarket Divergence Alert\n\nCompares Polymarket election market prices against polling data and alerts you when they diverge significantly.\n\n**Setup:**\n1. Configure the polling data URL in the \"Fetch Polling Data\" HTTP Request node\n2. Configure Telegram bot token and chat ID for alerts\n3. Adjust the divergence threshold in the \"Compare & Find Divergences\" code node (default: 10%)\n\n**Polling data sources (configure the HTTP Request URL):**\n- RealClearPolitics API: `https://www.realclearpolling.com/api/polls` (check their current API structure)\n- FiveThirtyEight/538: `https://projects.fivethirtyeight.com/polls/` (CSV exports available)\n- Custom JSON endpoint: Any API that returns candidate names and polling percentages\n\n**Expected polling data format:**\nThe code node expects JSON with an array of races, each having candidate names and polling percentages. Adjust the parsing logic in the \"Compare & Find Divergences\" node to match your data source.\n\n**How it works:**\n1. Searches Polymarket for active election markets every 6 hours\n2. Extracts candidate/race names and implied probabilities from market prices\n3. Fetches polling averages from your configured data source\n4. Compares implied probabilities and flags divergences above your threshold\n5. Sends a Telegram alert with the divergence details\n\n**Notes:**\n- This is informational only, not trading advice\n- Polls and prediction markets measure different things (polling is a snapshot of voter intent; markets price in probability of winning)\n- Large divergences may indicate the market has information polls don't capture, or vice versa"
+      },
+      "id": "pv-0001-0000-0000-000000000001",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [240, 80]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "pv-0001-0000-0000-000000000002",
+      "name": "Every 6 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 440]
+    },
+    {
+      "parameters": {
+        "resource": "market",
+        "operation": "search",
+        "query": "election",
+        "filters": {
+          "active": true,
+          "limit": 20
+        }
+      },
+      "id": "pv-0001-0000-0000-000000000003",
+      "name": "Search Election Markets",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [490, 440]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract political markets with yes/no prices as implied probabilities\nconst markets = $input.all();\nconst politicalMarkets = [];\n\nfor (const item of markets) {\n  const m = item.json;\n  const question = m.question || m.title || '';\n  const outcomes = typeof m.outcomes === 'string' ? JSON.parse(m.outcomes) : (m.outcomes || []);\n  const prices = typeof m.outcomePrices === 'string' ? JSON.parse(m.outcomePrices) : (m.outcomePrices || []);\n\n  // Build outcome map\n  const outcomeData = [];\n  for (let i = 0; i < outcomes.length; i++) {\n    const name = outcomes[i];\n    const price = Number(prices[i] || 0);\n    outcomeData.push({\n      name,\n      price,\n      impliedProbability: (price * 100).toFixed(1)\n    });\n  }\n\n  // Extract candidate/party names from question and outcomes\n  // Common patterns: \"Will X win the election?\", \"X to win?\", \"Next president: X?\"\n  politicalMarkets.push({\n    json: {\n      question,\n      conditionId: m.conditionId || '',\n      slug: m.slug || '',\n      outcomes: outcomeData,\n      // Store the primary candidate/outcome and its probability\n      primaryOutcome: outcomeData[0]?.name || 'Yes',\n      marketProbability: Number(outcomeData[0]?.impliedProbability || 0)\n    }\n  });\n}\n\nreturn politicalMarkets;"
+      },
+      "id": "pv-0001-0000-0000-000000000004",
+      "name": "Extract Political Markets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 440]
+    },
+    {
+      "parameters": {
+        "url": "https://YOUR_POLLING_DATA_URL",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "pv-0001-0000-0000-000000000005",
+      "name": "Fetch Polling Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [990, 440]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compare Polymarket implied probability vs polling averages\n// Flag divergences above threshold\nconst DIVERGENCE_THRESHOLD = 10; // Alert if difference > 10 percentage points\n\nconst polymarketData = $('Extract Political Markets').all();\nconst pollingResponse = $input.all();\n\n// Parse polling data -- adjust this section based on your data source format\n// Expected: array of { race, candidate, pollAverage } or similar\nlet polls = [];\ntry {\n  const raw = pollingResponse[0]?.json;\n  if (Array.isArray(raw)) {\n    polls = raw;\n  } else if (raw?.races) {\n    polls = raw.races;\n  } else if (raw?.data) {\n    polls = raw.data;\n  }\n} catch (e) {\n  // If parsing fails, return empty\n  return [{ json: { _skip: true, error: 'Could not parse polling data' } }];\n}\n\n// Build polling lookup by candidate/race name\nconst pollingLookup = {};\nfor (const poll of polls) {\n  const candidate = (poll.candidate || poll.name || poll.answer || '').toLowerCase();\n  const race = (poll.race || poll.question || poll.state || '').toLowerCase();\n  const avg = Number(poll.pollAverage || poll.pct || poll.value || poll.percentage || 0);\n\n  if (candidate && avg > 0) {\n    pollingLookup[candidate] = { race, pollAvg: avg };\n  }\n  // Also index by race + candidate\n  if (race && candidate) {\n    pollingLookup[`${race}_${candidate}`] = { race, pollAvg: avg };\n  }\n}\n\nconst divergences = [];\n\nfor (const pm of polymarketData) {\n  const question = (pm.json.question || '').toLowerCase();\n  const outcomes = pm.json.outcomes || [];\n\n  for (const outcome of outcomes) {\n    const outcomeName = (outcome.name || '').toLowerCase();\n    const marketProb = Number(outcome.impliedProbability || 0);\n\n    // Try to find matching polling data\n    let pollAvg = null;\n    let matchKey = null;\n\n    // Direct name match\n    if (pollingLookup[outcomeName]) {\n      pollAvg = pollingLookup[outcomeName].pollAvg;\n      matchKey = outcomeName;\n    }\n\n    // Partial match\n    if (!pollAvg) {\n      for (const key in pollingLookup) {\n        if (outcomeName.includes(key) || key.includes(outcomeName) ||\n            question.includes(key)) {\n          pollAvg = pollingLookup[key].pollAvg;\n          matchKey = key;\n          break;\n        }\n      }\n    }\n\n    if (pollAvg !== null) {\n      const diff = Math.abs(marketProb - pollAvg);\n\n      if (diff >= DIVERGENCE_THRESHOLD) {\n        const direction = marketProb > pollAvg\n          ? 'Market MORE confident than polls'\n          : 'Market LESS confident than polls';\n\n        divergences.push({\n          json: {\n            race: pm.json.question,\n            outcome: outcome.name,\n            pollAvg: pollAvg.toFixed(1) + '%',\n            marketPrice: marketProb.toFixed(1) + '%',\n            gap: diff.toFixed(1) + '%',\n            direction,\n            alertMessage: `Divergence Alert: ${pm.json.question}\\n${outcome.name}: Polls ${pollAvg.toFixed(1)}% vs Market ${marketProb.toFixed(1)}%\\nGap: ${diff.toFixed(1)}% -- ${direction}`\n          }\n        });\n      }\n    }\n  }\n}\n\nif (divergences.length === 0) {\n  return [{ json: { _skip: true } }];\n}\n\nreturn divergences;"
+      },
+      "id": "pv-0001-0000-0000-000000000006",
+      "name": "Compare & Find Divergences",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 440]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "pv-divergence-check",
+              "leftValue": "={{ $json._skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notTrue"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "pv-0001-0000-0000-000000000007",
+      "name": "Divergences Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [1490, 440]
+    },
+    {
+      "parameters": {
+        "chatId": "",
+        "text": "={{ $json.alertMessage }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "pv-0001-0000-0000-000000000008",
+      "name": "Send Divergence Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1740, 380],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 6 Hours": {
+      "main": [
+        [
+          {
+            "node": "Search Election Markets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Election Markets": {
+      "main": [
+        [
+          {
+            "node": "Extract Political Markets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Political Markets": {
+      "main": [
+        [
+          {
+            "node": "Fetch Polling Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Polling Data": {
+      "main": [
+        [
+          {
+            "node": "Compare & Find Divergences",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare & Find Divergences": {
+      "main": [
+        [
+          {
+            "node": "Divergences Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Divergences Found?": {
+      "main": [
+        [
+          {
+            "node": "Send Divergence Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "prediction-markets" },
+    { "name": "elections" },
+    { "name": "polling" },
+    { "name": "telegram" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}

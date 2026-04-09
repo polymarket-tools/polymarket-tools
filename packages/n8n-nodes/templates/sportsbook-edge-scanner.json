@@ -1,0 +1,220 @@
+{
+  "name": "Polymarket vs Sportsbook Edge Scanner",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Polymarket vs Sportsbook Edge Scanner\n\nCompares Polymarket prediction market prices against traditional sportsbook odds to find arbitrage or edge opportunities.\n\n**Setup:**\n1. Get a free API key from [The Odds API](https://the-odds-api.com/) (500 requests/month on free tier)\n2. Replace `YOUR_KEY` in the HTTP Request node with your API key\n3. Configure Telegram bot token and chat ID for alerts\n4. Adjust the edge threshold in the \"Find Edges\" code node (default: 5%)\n\n**How it works:**\n1. Searches Polymarket for active NBA markets every 15 minutes\n2. Fetches current sportsbook odds from The Odds API (US bookmakers, h2h markets)\n3. Matches markets by team name and compares implied probabilities\n4. Alerts you when the difference exceeds your threshold\n\n**Customization:**\n- Change the search query from \"NBA\" to any sport (NFL, MLB, NHL, etc.)\n- Change the sport key in the HTTP Request node to match (e.g., `basketball_nba`, `americanfootball_nfl`)\n- Adjust `EDGE_THRESHOLD` in the code node (0.05 = 5%)\n\n**Note:** The Odds API free tier allows 500 requests/month. At 15-min intervals, that is ~2,880/month, so consider increasing the interval to 1 hour (720/month) or using a paid plan."
+      },
+      "id": "se-0001-0000-0000-000000000001",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [240, 80]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "se-0001-0000-0000-000000000002",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "resource": "market",
+        "operation": "search",
+        "query": "NBA",
+        "filters": {
+          "active": true,
+          "limit": 20
+        }
+      },
+      "id": "se-0001-0000-0000-000000000003",
+      "name": "Search NBA Markets",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [490, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract market questions and current prices from Polymarket\nconst markets = $input.all();\nconst polymarketData = [];\n\nfor (const item of markets) {\n  const m = item.json;\n  const question = m.question || m.title || '';\n  const outcomes = typeof m.outcomes === 'string' ? JSON.parse(m.outcomes) : (m.outcomes || []);\n  const prices = typeof m.outcomePrices === 'string' ? JSON.parse(m.outcomePrices) : (m.outcomePrices || []);\n\n  // Extract team names from the question\n  // Common patterns: \"Will X win?\", \"X vs Y\", \"Will X beat Y?\"\n  const teamNames = [];\n  for (let i = 0; i < outcomes.length; i++) {\n    teamNames.push({\n      outcome: outcomes[i],\n      price: Number(prices[i] || 0),\n      impliedProb: Number(prices[i] || 0) * 100\n    });\n  }\n\n  polymarketData.push({\n    json: {\n      question,\n      conditionId: m.conditionId || '',\n      slug: m.slug || '',\n      outcomes: teamNames\n    }\n  });\n}\n\nreturn polymarketData;"
+      },
+      "id": "se-0001-0000-0000-000000000004",
+      "name": "Extract Market Prices",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://api.the-odds-api.com/v4/sports/basketball_nba/odds/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "apiKey", "value": "YOUR_KEY" },
+            { "name": "regions", "value": "us" },
+            { "name": "markets", "value": "h2h" },
+            { "name": "oddsFormat", "value": "decimal" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "se-0001-0000-0000-000000000005",
+      "name": "Fetch Sportsbook Odds",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [990, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Match Polymarket markets to sportsbook odds and find edges\nconst EDGE_THRESHOLD = 0.05; // 5% minimum edge to alert\n\nconst polymarketItems = $('Extract Market Prices').all();\nconst oddsResponse = $input.all();\nconst sportsEvents = Array.isArray(oddsResponse[0]?.json) ? oddsResponse[0].json : oddsResponse.map(i => i.json);\n\nconst edges = [];\n\n// Build a lookup of sportsbook implied probabilities\nconst sportsbookProbs = {};\nfor (const event of sportsEvents) {\n  if (!event.bookmakers || event.bookmakers.length === 0) continue;\n\n  // Average across bookmakers for best estimate\n  const teamProbs = {};\n  let bookCount = 0;\n\n  for (const book of event.bookmakers) {\n    for (const market of (book.markets || [])) {\n      if (market.key !== 'h2h') continue;\n      bookCount++;\n      for (const outcome of (market.outcomes || [])) {\n        const name = outcome.name.toLowerCase();\n        const decimalOdds = outcome.price || 2.0;\n        const impliedProb = 1 / decimalOdds;\n        teamProbs[name] = (teamProbs[name] || 0) + impliedProb;\n      }\n    }\n  }\n\n  // Average the probabilities\n  if (bookCount > 0) {\n    for (const team in teamProbs) {\n      teamProbs[team] = teamProbs[team] / bookCount;\n    }\n  }\n\n  sportsbookProbs[event.home_team?.toLowerCase()] = teamProbs;\n  sportsbookProbs[event.away_team?.toLowerCase()] = teamProbs;\n}\n\n// Compare Polymarket prices to sportsbook probabilities\nfor (const pm of polymarketItems) {\n  const question = (pm.json.question || '').toLowerCase();\n  const outcomes = pm.json.outcomes || [];\n\n  for (const outcome of outcomes) {\n    const outcomeName = (outcome.outcome || '').toLowerCase();\n    const polyProb = outcome.impliedProb / 100;\n\n    // Try to find matching sportsbook data\n    for (const key in sportsbookProbs) {\n      if (question.includes(key) || outcomeName.includes(key)) {\n        const sbProbs = sportsbookProbs[key];\n        for (const team in sbProbs) {\n          if (outcomeName.includes(team) || team.includes(outcomeName)) {\n            const sbProb = sbProbs[team];\n            const diff = Math.abs(polyProb - sbProb);\n\n            if (diff >= EDGE_THRESHOLD) {\n              const direction = polyProb < sbProb ? 'Polymarket UNDERPRICED' : 'Polymarket OVERPRICED';\n              edges.push({\n                json: {\n                  market: pm.json.question,\n                  outcome: outcome.outcome,\n                  polymarketPrice: (polyProb * 100).toFixed(1) + '%',\n                  sportsbookImplied: (sbProb * 100).toFixed(1) + '%',\n                  edge: (diff * 100).toFixed(1) + '%',\n                  direction,\n                  alertMessage: `Edge Found: ${pm.json.question}\\n${outcome.outcome}: Polymarket ${(polyProb * 100).toFixed(1)}% vs Sportsbook ${(sbProb * 100).toFixed(1)}%\\nEdge: ${(diff * 100).toFixed(1)}% -- ${direction}`\n                }\n              });\n            }\n          }\n        }\n      }\n    }\n  }\n}\n\nif (edges.length === 0) {\n  return [{ json: { _skip: true } }];\n}\n\nreturn edges;"
+      },
+      "id": "se-0001-0000-0000-000000000006",
+      "name": "Find Edges",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "se-edge-check",
+              "leftValue": "={{ $json._skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notTrue"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "se-0001-0000-0000-000000000007",
+      "name": "Edges Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [1490, 400]
+    },
+    {
+      "parameters": {
+        "chatId": "",
+        "text": "={{ $json.alertMessage }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "se-0001-0000-0000-000000000008",
+      "name": "Send Edge Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1740, 340],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Search NBA Markets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search NBA Markets": {
+      "main": [
+        [
+          {
+            "node": "Extract Market Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Market Prices": {
+      "main": [
+        [
+          {
+            "node": "Fetch Sportsbook Odds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Sportsbook Odds": {
+      "main": [
+        [
+          {
+            "node": "Find Edges",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Edges": {
+      "main": [
+        [
+          {
+            "node": "Edges Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edges Found?": {
+      "main": [
+        [
+          {
+            "node": "Send Edge Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "prediction-markets" },
+    { "name": "sportsbook" },
+    { "name": "arbitrage" },
+    { "name": "telegram" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}

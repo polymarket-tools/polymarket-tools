@@ -1,0 +1,133 @@
+{
+  "name": "Polymarket Portfolio Tracker to Google Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Polymarket Portfolio Tracker to Google Sheets\n\nSyncs your Polymarket positions to a Google Sheet every hour for portfolio tracking and P&L analysis.\n\n**Setup:**\n1. Enter your Polymarket wallet address in the \"Get My Positions\" node\n2. Create a Google Sheet with these column headers in Row 1:\n   `Timestamp | Market | Outcome | Size | Avg Price | Current Price | Value | Cash P&L | Percent P&L | Total Portfolio Value`\n3. Connect your Google Sheets credentials in the \"Append to Sheet\" node\n4. Set the spreadsheet ID and sheet name in the Google Sheets node\n\n**How it works:**\n1. Fetches all your open positions from Polymarket every hour\n2. Calculates current value, cost basis, and P&L for each position\n3. Appends a timestamped row for each position to your Google Sheet\n4. Includes a total portfolio value row at the end of each sync\n\n**Tips:**\n- Use Google Sheets charts to visualize P&L over time\n- Create a pivot table to group by market for per-market performance\n- The hourly snapshots give you a historical record of your portfolio value"
+      },
+      "id": "ps-0001-0000-0000-000000000001",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [240, 80]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "ps-0001-0000-0000-000000000002",
+      "name": "Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "resource": "data",
+        "operation": "getWalletPositions",
+        "walletAddress": "YOUR_WALLET_ADDRESS"
+      },
+      "id": "ps-0001-0000-0000-000000000003",
+      "name": "Get My Positions",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [490, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate P&L and format each position as a spreadsheet row\nconst positions = $input.all();\nconst timestamp = new Date().toISOString();\nconst rows = [];\nlet totalPortfolioValue = 0;\n\nfor (const item of positions) {\n  const p = item.json;\n  const size = Number(p.size || p.amount || 0);\n  const avgPrice = Number(p.avgPrice || p.price || 0);\n  const currentPrice = Number(p.currentPrice || p.curPrice || avgPrice);\n  const market = p.market || p.question || p.title || 'Unknown';\n  const outcome = p.outcome || p.side || 'Unknown';\n\n  const costBasis = size * avgPrice;\n  const currentValue = size * currentPrice;\n  const cashPnl = currentValue - costBasis;\n  const percentPnl = costBasis > 0 ? ((cashPnl / costBasis) * 100) : 0;\n\n  totalPortfolioValue += currentValue;\n\n  rows.push({\n    json: {\n      Timestamp: timestamp,\n      Market: market,\n      Outcome: outcome,\n      Size: size.toFixed(2),\n      'Avg Price': '$' + avgPrice.toFixed(4),\n      'Current Price': '$' + currentPrice.toFixed(4),\n      Value: '$' + currentValue.toFixed(2),\n      'Cash P&L': (cashPnl >= 0 ? '+$' : '-$') + Math.abs(cashPnl).toFixed(2),\n      'Percent P&L': percentPnl.toFixed(2) + '%',\n      'Total Portfolio Value': ''\n    }\n  });\n}\n\n// Add a summary row\nrows.push({\n  json: {\n    Timestamp: timestamp,\n    Market: '--- TOTAL ---',\n    Outcome: '',\n    Size: '',\n    'Avg Price': '',\n    'Current Price': '',\n    Value: '$' + totalPortfolioValue.toFixed(2),\n    'Cash P&L': '',\n    'Percent P&L': '',\n    'Total Portfolio Value': '$' + totalPortfolioValue.toFixed(2)\n  }\n});\n\nreturn rows;"
+      },
+      "id": "ps-0001-0000-0000-000000000004",
+      "name": "Calculate P&L",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 400]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_SPREADSHEET_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Portfolio"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      },
+      "id": "ps-0001-0000-0000-000000000005",
+      "name": "Append to Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [990, 400],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Hour": {
+      "main": [
+        [
+          {
+            "node": "Get My Positions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get My Positions": {
+      "main": [
+        [
+          {
+            "node": "Calculate P&L",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate P&L": {
+      "main": [
+        [
+          {
+            "node": "Append to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "prediction-markets" },
+    { "name": "google-sheets" },
+    { "name": "portfolio-tracking" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}

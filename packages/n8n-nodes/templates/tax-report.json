@@ -1,0 +1,185 @@
+{
+  "name": "Polymarket Tax Report Generator (IRS Form 8949)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Polymarket Tax Report Generator (IRS Form 8949)\n\nGenerates a tax report from your Polymarket trading history, formatted for IRS Form 8949 reporting.\n\n**DISCLAIMER: This is NOT tax advice. Consult a qualified tax professional for your specific situation. Prediction market tax treatment may vary by jurisdiction and is an evolving area of tax law.**\n\n**Setup:**\n1. Enter your Polymarket wallet address in both the \"Get All Trades\" and \"Get Open Positions\" nodes\n2. Connect Google Sheets credentials in the \"Write Tax Report\" node\n3. Create a Google Sheet and enter its ID in the Google Sheets node\n4. Run manually when you need to generate your report (e.g., at tax time)\n\n**How it works:**\n1. Fetches your complete trade history (up to 1,000 trades)\n2. Fetches your current open positions (for unrealized gains tracking)\n3. Calculates cost basis, proceeds, gain/loss, and holding period for each trade\n4. Uses FIFO (First In, First Out) method for cost basis calculation\n5. Classifies as short-term (<1 year) or long-term (>1 year)\n6. Writes a Form 8949-style report to Google Sheets\n7. Sends a summary notification via Telegram\n\n**Output columns:** Description | Date Acquired | Date Sold | Proceeds | Cost Basis | Gain/Loss | Term\n\n**Notes:**\n- FIFO method is used for cost basis -- this is the most common method but not the only option\n- Resolved markets (outcome determined) are treated as dispositions\n- Open positions show unrealized gain/loss for planning purposes\n- Consider consulting a CPA familiar with crypto/prediction market taxation"
+      },
+      "id": "tr-0001-0000-0000-000000000001",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [240, 80]
+    },
+    {
+      "parameters": {},
+      "id": "tr-0001-0000-0000-000000000002",
+      "name": "Run Manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 440]
+    },
+    {
+      "parameters": {
+        "resource": "data",
+        "operation": "getWalletTrades",
+        "walletAddress": "YOUR_WALLET_ADDRESS",
+        "limit": 1000
+      },
+      "id": "tr-0001-0000-0000-000000000003",
+      "name": "Get All Trades",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [490, 380]
+    },
+    {
+      "parameters": {
+        "resource": "data",
+        "operation": "getWalletPositions",
+        "walletAddress": "YOUR_WALLET_ADDRESS"
+      },
+      "id": "tr-0001-0000-0000-000000000004",
+      "name": "Get Open Positions",
+      "type": "n8n-nodes-polymarket-tools.polymarket",
+      "typeVersion": 1,
+      "position": [490, 520]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate cost basis, proceeds, gain/loss using FIFO method\n// Format as IRS Form 8949 rows\nconst trades = $('Get All Trades').all();\nconst positions = $('Get Open Positions').all();\n\n// Build FIFO lots per token\nconst lots = {}; // tokenId -> [{price, size, date}]\nconst taxRows = [];\nlet totalGains = 0;\nlet totalLosses = 0;\nlet totalTrades = 0;\nconst ONE_YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;\n\n// Sort trades by timestamp ascending for FIFO\nconst sortedTrades = trades\n  .map(t => t.json)\n  .sort((a, b) => new Date(a.timestamp || a.createdAt || 0).getTime() - new Date(b.timestamp || b.createdAt || 0).getTime());\n\nfor (const trade of sortedTrades) {\n  const tokenId = trade.tokenId || trade.asset || 'unknown';\n  const side = (trade.side || trade.type || '').toUpperCase();\n  const price = Number(trade.price || 0);\n  const size = Number(trade.size || trade.amount || 0);\n  const tradeDate = new Date(trade.timestamp || trade.createdAt || 0);\n  const market = trade.market || trade.question || trade.conditionId || 'Polymarket Position';\n\n  if (!lots[tokenId]) lots[tokenId] = [];\n\n  if (side === 'BUY') {\n    // Add to FIFO queue\n    lots[tokenId].push({ price, size, date: tradeDate });\n  } else if (side === 'SELL') {\n    // Match against oldest lots (FIFO)\n    let remaining = size;\n    while (remaining > 0 && lots[tokenId].length > 0) {\n      const lot = lots[tokenId][0];\n      const matched = Math.min(remaining, lot.size);\n\n      const costBasis = matched * lot.price;\n      const proceeds = matched * price;\n      const gainLoss = proceeds - costBasis;\n      const holdingMs = tradeDate.getTime() - lot.date.getTime();\n      const term = holdingMs > ONE_YEAR_MS ? 'Long-term' : 'Short-term';\n\n      totalTrades++;\n      if (gainLoss >= 0) totalGains += gainLoss;\n      else totalLosses += Math.abs(gainLoss);\n\n      taxRows.push({\n        json: {\n          Description: `${market} (${matched.toFixed(2)} shares)`,\n          'Date Acquired': lot.date.toISOString().split('T')[0],\n          'Date Sold': tradeDate.toISOString().split('T')[0],\n          Proceeds: '$' + proceeds.toFixed(2),\n          'Cost Basis': '$' + costBasis.toFixed(2),\n          'Gain/Loss': (gainLoss >= 0 ? '+$' : '-$') + Math.abs(gainLoss).toFixed(2),\n          Term: term\n        }\n      });\n\n      lot.size -= matched;\n      remaining -= matched;\n      if (lot.size <= 0) lots[tokenId].shift();\n    }\n  }\n}\n\n// Add summary row\ntaxRows.push({\n  json: {\n    Description: '--- SUMMARY ---',\n    'Date Acquired': '',\n    'Date Sold': '',\n    Proceeds: '',\n    'Cost Basis': '',\n    'Gain/Loss': '',\n    Term: ''\n  }\n});\n\ntaxRows.push({\n  json: {\n    Description: `Total: ${totalTrades} dispositions`,\n    'Date Acquired': '',\n    'Date Sold': '',\n    Proceeds: '',\n    'Cost Basis': 'Total Gains:',\n    'Gain/Loss': '+$' + totalGains.toFixed(2),\n    Term: ''\n  }\n});\n\ntaxRows.push({\n  json: {\n    Description: '',\n    'Date Acquired': '',\n    'Date Sold': '',\n    Proceeds: '',\n    'Cost Basis': 'Total Losses:',\n    'Gain/Loss': '-$' + totalLosses.toFixed(2),\n    Term: ''\n  }\n});\n\ntaxRows.push({\n  json: {\n    Description: '',\n    'Date Acquired': '',\n    'Date Sold': '',\n    Proceeds: '',\n    'Cost Basis': 'Net:',\n    'Gain/Loss': (totalGains - totalLosses >= 0 ? '+$' : '-$') + Math.abs(totalGains - totalLosses).toFixed(2),\n    Term: '',\n    _totalTrades: totalTrades,\n    _totalGains: totalGains.toFixed(2),\n    _totalLosses: totalLosses.toFixed(2)\n  }\n});\n\nreturn taxRows;"
+      },
+      "id": "tr-0001-0000-0000-000000000005",
+      "name": "Calculate Tax Lots (FIFO)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 440]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_SPREADSHEET_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Form 8949"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      },
+      "id": "tr-0001-0000-0000-000000000006",
+      "name": "Write Tax Report",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [990, 440],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "",
+        "text": "=Tax report generated!\n\nTotal trades: {{ $('Calculate Tax Lots (FIFO)').last().json._totalTrades }}\nTotal gains: ${{ $('Calculate Tax Lots (FIFO)').last().json._totalGains }}\nTotal losses: ${{ $('Calculate Tax Lots (FIFO)').last().json._totalLosses }}\n\nReport written to Google Sheets. Review with your tax professional.",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "tr-0001-0000-0000-000000000007",
+      "name": "Send Summary",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1240, 440],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Run Manually": {
+      "main": [
+        [
+          {
+            "node": "Get All Trades",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Open Positions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Trades": {
+      "main": [
+        [
+          {
+            "node": "Calculate Tax Lots (FIFO)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Open Positions": {
+      "main": [
+        [
+          {
+            "node": "Calculate Tax Lots (FIFO)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Tax Lots (FIFO)": {
+      "main": [
+        [
+          {
+            "node": "Write Tax Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Tax Report": {
+      "main": [
+        [
+          {
+            "node": "Send Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "polymarket" },
+    { "name": "prediction-markets" },
+    { "name": "tax-reporting" },
+    { "name": "google-sheets" },
+    { "name": "telegram" }
+  ],
+  "meta": {
+    "instanceId": ""
+  }
+}
