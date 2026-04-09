@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Polymarket Tools for n8n — Automate Prediction Markets</title>
+  <meta name="description" content="Free n8n community node for Polymarket. Trading with EIP-712 signing, whale tracking, AI agent support, and 15 workflow templates.">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1a1a2e; line-height: 1.6; }
+    .container { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+
+    header { background: #0f0f23; color: #e0e0e0; padding: 48px 0 40px; }
+    header h1 { font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 12px; }
+    header p { font-size: 18px; color: #a0a0b8; }
+
+    .install { background: #f8f9fa; padding: 48px 0; }
+    .install h2 { font-size: 22px; margin-bottom: 24px; }
+    .step { display: flex; gap: 16px; margin-bottom: 24px; align-items: flex-start; }
+    .step-num { background: #0066ff; color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+    .step-content h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .step-content p { font-size: 15px; color: #555; }
+    code { background: #e8ecf1; padding: 2px 8px; border-radius: 4px; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; }
+    .code-block { background: #1a1a2e; color: #e0e0e0; padding: 16px 20px; border-radius: 8px; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; margin: 12px 0; overflow-x: auto; }
+
+    .features { padding: 48px 0; }
+    .features h2 { font-size: 22px; margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+    th { text-align: left; padding: 10px 12px; background: #f0f2f5; font-size: 14px; font-weight: 600; }
+    td { padding: 10px 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+
+    .templates { background: #f8f9fa; padding: 48px 0; }
+    .templates h2 { font-size: 22px; margin-bottom: 24px; }
+    .template-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .template-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; }
+    .template-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .template-card p { font-size: 13px; color: #666; }
+
+    .cta { padding: 48px 0; text-align: center; }
+    .cta h2 { font-size: 22px; margin-bottom: 16px; }
+    .btn { display: inline-block; background: #0066ff; color: #fff; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; margin: 8px; }
+    .btn-outline { background: transparent; border: 2px solid #0066ff; color: #0066ff; }
+
+    footer { background: #0f0f23; color: #888; padding: 24px 0; text-align: center; font-size: 13px; }
+    footer a { color: #a0a0b8; }
+
+    @media (max-width: 600px) {
+      .template-grid { grid-template-columns: 1fr; }
+      header h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <h1>Polymarket Tools for n8n</h1>
+    <p>Automate prediction market trading, whale tracking, and AI signals. Free, open source, 15 templates.</p>
+  </div>
+</header>
+
+<section class="install">
+  <div class="container">
+    <h2>Install in 60 seconds</h2>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h3>Open your n8n instance</h3>
+        <p>Self-hosted or n8n Cloud. Both work.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h3>Go to Settings > Community Nodes</h3>
+        <p>Click <strong>Install</strong> in the community nodes section.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h3>Search and install</h3>
+        <p>Enter the package name and click install:</p>
+        <div class="code-block">n8n-nodes-polymarket-tools</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h3>Start building workflows</h3>
+        <p>Search for "Polymarket" in the node panel. Market data and whale tracking work immediately. No API key needed.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="features">
+  <div class="container">
+    <h2>12 operations across 4 resources</h2>
+
+    <table>
+      <tr><th>Resource</th><th>Operations</th></tr>
+      <tr><td>Market</td><td>Search, Get</td></tr>
+      <tr><td>Price</td><td>Get (midpoint, spread, order book), Get History</td></tr>
+      <tr><td>Trading</td><td>Place Order (EIP-712 signed), Cancel, Get Open Orders</td></tr>
+      <tr><td>Data</td><td>Leaderboard, Wallet Positions, Wallet Trades, Market Holders</td></tr>
+    </table>
+
+    <p>3 polling triggers: Price Change, Threshold Crossing, New Market.</p>
+    <p>Both nodes set <code>usableAsTool</code> for n8n's AI Agent node.</p>
+  </div>
+</section>
+
+<section class="templates">
+  <div class="container">
+    <h2>15 workflow templates</h2>
+    <p style="margin-bottom: 16px; color: #555;">Every template is a real strategy Polymarket traders use and pay for.</p>
+
+    <div class="template-grid">
+      <div class="template-card">
+        <h3>Smart Money Radar</h3>
+        <p>Track whale wallets from the leaderboard. Alert when top traders move.</p>
+      </div>
+      <div class="template-card">
+        <h3>Copy Trader</h3>
+        <p>Mirror whale trades with configurable position sizing.</p>
+      </div>
+      <div class="template-card">
+        <h3>Sportsbook Edge Scanner</h3>
+        <p>Compare Polymarket odds against sportsbook lines.</p>
+      </div>
+      <div class="template-card">
+        <h3>AI News Matcher</h3>
+        <p>RSS feed into AI that matches headlines to Polymarket markets.</p>
+      </div>
+      <div class="template-card">
+        <h3>Tax Report Generator</h3>
+        <p>IRS Form 8949 compatible export of your trade history.</p>
+      </div>
+      <div class="template-card">
+        <h3>Market Making Bot</h3>
+        <p>Two-sided orders for Polymarket's liquidity rewards program.</p>
+      </div>
+      <div class="template-card">
+        <h3>BTC Momentum Scalper</h3>
+        <p>Binance price momentum into Polymarket 5-minute markets.</p>
+      </div>
+      <div class="template-card">
+        <h3>Mispricing Scanner</h3>
+        <p>Detect pricing inconsistencies across correlated markets.</p>
+      </div>
+      <div class="template-card">
+        <h3>Portfolio Tracker</h3>
+        <p>Positions and P&L synced to Google Sheets hourly.</p>
+      </div>
+      <div class="template-card">
+        <h3>Polls vs Markets</h3>
+        <p>Election polling divergence alerts against Polymarket prices.</p>
+      </div>
+      <div class="template-card">
+        <h3>Resolution Watcher</h3>
+        <p>Alerts when your markets are about to close.</p>
+      </div>
+      <div class="template-card">
+        <h3>New Market Sniper</h3>
+        <p>AI evaluates new markets for early entry opportunities.</p>
+      </div>
+      <div class="template-card">
+        <h3>AI Sentiment Trader</h3>
+        <p>Social media sentiment into directional trade signals.</p>
+      </div>
+      <div class="template-card">
+        <h3>Game Day Alert Hub</h3>
+        <p>Live sports data combined with Polymarket odds.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="container">
+    <h2>Get started</h2>
+    <p style="margin-bottom: 20px; color: #555;">Free, open source, 163 tests, E2E verified against live APIs.</p>
+    <a href="https://www.npmjs.com/package/n8n-nodes-polymarket-tools" class="btn">npm package</a>
+    <a href="https://github.com/polymarket-tools/polymarket-tools" class="btn btn-outline">GitHub</a>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>Built for the <a href="https://builders.polymarket.com">Polymarket Builder Program</a>. MIT License.</p>
+  </div>
+</footer>
+
+</body>
+</html>
