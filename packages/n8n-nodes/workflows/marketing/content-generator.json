@@ -100,14 +100,29 @@
     },
     {
       "parameters": {
-        "jsCode": "// Combine all data sources into a single context block for AI\nconst leaders = $('Get Leaderboard').all();\nconst markets = $('Search Trending Markets').all();\nconst whaleTrades = $input.all();\n\n// Format leaderboard\nconst leaderboardText = leaders.map((l, i) => {\n  const d = l.json;\n  return `${i + 1}. ${d.userName || 'Anon'} -- PnL: $${Number(d.pnl || 0).toLocaleString()}, Volume: $${Number(d.volume || 0).toLocaleString()}`;\n}).join('\\n');\n\n// Format trending markets\nconst marketsText = markets.slice(0, 10).map((m, i) => {\n  const d = m.json;\n  const prices = typeof d.outcomePrices === 'string' ? JSON.parse(d.outcomePrices) : (d.outcomePrices || []);\n  const yesPrice = prices[0] ? `${(Number(prices[0]) * 100).toFixed(0)}%` : 'N/A';\n  return `${i + 1}. \"${d.question || d.title || 'Unknown'}\" -- Yes: ${yesPrice}, Volume: $${Number(d.volume || 0).toLocaleString()}`;\n}).join('\\n');\n\n// Format whale trades\nconst whaleText = whaleTrades.map(t => {\n  const d = t.json;\n  const side = (d.side || d.type || 'UNKNOWN').toUpperCase();\n  return `- ${side} ${d.market || d.question || 'Unknown'} -- ${d.size || d.amount || '?'} shares at $${Number(d.price || 0).toFixed(2)}`;\n}).join('\\n');\n\nconst contextBlock = `TODAY'S POLYMARKET DATA\\n\\n` +\n  `TOP TRADERS (24h):\\n${leaderboardText}\\n\\n` +\n  `TRENDING MARKETS:\\n${marketsText}\\n\\n` +\n  `WHALE TRADES (top trader's recent activity):\\n${whaleText}`;\n\nreturn [{ json: { contextBlock } }];"
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "cg-0001-0000-0000-000000000013",
+      "name": "Wait for Both",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1240,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// All items from both paths arrive via the Merge node\nconst items = $input.all();\n\n// Separate items by type: leaderboard entries have 'proxyWallet', markets have 'question', trades have 'transactionHash'\nconst leaders = items.filter(i => i.json.proxyWallet && i.json.pnl !== undefined);\nconst markets = items.filter(i => i.json.question && !i.json.transactionHash);\nconst whaleTrades = items.filter(i => i.json.transactionHash || (i.json.side && i.json.price && i.json.market));\n\n// Format leaderboard\nconst leaderboardText = leaders.slice(0, 5).map((l, i) => {\n  const d = l.json;\n  return `${i + 1}. ${d.userName || 'Anon'} -- PnL: $${Number(d.pnl || 0).toLocaleString()}, Volume: $${Number(d.volume || 0).toLocaleString()}`;\n}).join('\\n') || 'No leaderboard data';\n\n// Format trending markets\nconst marketsText = markets.slice(0, 10).map((m, i) => {\n  const d = m.json;\n  const tokens = d.tokens || [];\n  const yesPrice = tokens[0] ? `${(Number(tokens[0].price) * 100).toFixed(0)}%` : 'N/A';\n  return `${i + 1}. \"${d.question || 'Unknown'}\" -- Yes: ${yesPrice}, Volume: $${Number(d.volume || 0).toLocaleString()}`;\n}).join('\\n') || 'No market data';\n\n// Format whale trades\nconst whaleText = whaleTrades.slice(0, 10).map(t => {\n  const d = t.json;\n  return `- ${(d.side || 'UNKNOWN').toUpperCase()} ${d.market || 'Unknown'} -- ${d.size || '?'} shares at $${Number(d.price || 0).toFixed(2)}`;\n}).join('\\n') || 'No whale trade data';\n\nconst contextBlock = `TODAY'S POLYMARKET DATA\\n\\n` +\n  `TOP TRADERS (24h):\\n${leaderboardText}\\n\\n` +\n  `TRENDING MARKETS:\\n${marketsText}\\n\\n` +\n  `WHALE TRADES (top trader's recent activity):\\n${whaleText}`;\n\nreturn [{ json: { contextBlock } }];"
       },
       "id": "cg-0001-0000-0000-000000000007",
       "name": "Build AI Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1240,
+        1500,
         340
       ]
     },
@@ -136,7 +151,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1500,
+        1760,
         340
       ],
       "credentials": {
@@ -155,7 +170,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1760,
+        2020,
         340
       ]
     },
@@ -184,7 +199,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2020,
+        2280,
         340
       ],
       "credentials": {
@@ -203,7 +218,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2280,
+        2540,
         340
       ]
     },
@@ -218,7 +233,7 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        2540,
+        2800,
         340
       ],
       "credentials": {
@@ -272,7 +287,7 @@
       "main": [
         [
           {
-            "node": "Build AI Context",
+            "node": "Wait for Both",
             "type": "main",
             "index": 0
           }
@@ -280,6 +295,17 @@
       ]
     },
     "Search Trending Markets": {
+      "main": [
+        [
+          {
+            "node": "Wait for Both",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Wait for Both": {
       "main": [
         [
           {
