@@ -1,5 +1,6 @@
 services:
-  n8n:
+  # Testing instance -- for developing and testing our node
+  n8n-test:
     build:
       context: .
       dockerfile: Dockerfile.dev
@@ -14,7 +15,24 @@ services:
       - N8N_PERSONALIZATION_ENABLED=false
       - N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true
     volumes:
-      - n8n_data:/home/node/.n8n
+      - n8n_test_data:/home/node/.n8n
+
+  # Production instance -- personal workflows (marketing, monitoring, etc.)
+  n8n-production:
+    image: n8nio/n8n:latest
+    ports:
+      - "5679:5678"
+    env_file:
+      - .env
+    environment:
+      - GENERIC_TIMEZONE=America/New_York
+      - TZ=America/New_York
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_PERSONALIZATION_ENABLED=false
+      - N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true
+    volumes:
+      - n8n_prod_data:/home/node/.n8n
 
 volumes:
-  n8n_data:
+  n8n_test_data:
+  n8n_prod_data:
