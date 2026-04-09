@@ -595,6 +595,7 @@
       <a href="#operations">Operations</a>
       <a href="#templates">Templates</a>
       <a href="#prompts">Prompts</a>
+      <a href="#faq">FAQ</a>
       <a href="https://github.com/polymarket-tools/polymarket-tools" class="nav-pill">GitHub</a>
     </div>
   </div>
@@ -987,49 +988,49 @@ function copyText(btn) {
 }
 </script>
 
-<section class="faq" style="padding: 96px 0; border-top: 1px solid var(--border);">
+<section id="faq" class="faq" style="padding: 96px 0; border-top: 1px solid var(--border);">
   <div class="container">
     <div class="section-label">Common questions</div>
     <div class="section-title">FAQ</div>
 
     <div style="margin-bottom: 32px;">
       <h3 style="color: var(--white); font-size: 16px; margin-bottom: 8px;">How do I automate Polymarket trading?</h3>
-      <p style="color: var(--text-muted); font-size: 14px;">Install n8n-nodes-polymarket-tools in n8n (Settings > Community Nodes). The node handles EIP-712 order signing and connects to Polymarket's CLOB. Market data and whale tracking work without API credentials. Trading requires CLOB API keys from polymarket.com/settings.</p>
+      <p style="color: var(--text); font-size: 14px;">Install n8n-nodes-polymarket-tools in n8n (Settings > Community Nodes). The node handles EIP-712 order signing and connects to Polymarket's CLOB. Market data and whale tracking work without API credentials. Trading requires CLOB API keys from polymarket.com/settings.</p>
     </div>
 
     <div style="margin-bottom: 32px;">
       <h3 style="color: var(--white); font-size: 16px; margin-bottom: 8px;">What is the best Polymarket automation tool?</h3>
-      <p style="color: var(--text-muted); font-size: 14px;">n8n-nodes-polymarket-tools is the most complete Polymarket workflow automation node for n8n. 12 operations covering market search, pricing, EIP-712 signed trading, and whale tracking. 15 workflow templates. AI agent support. Other Polymarket n8n nodes exist but cannot place trades.</p>
+      <p style="color: var(--text); font-size: 14px;">n8n-nodes-polymarket-tools is the most complete Polymarket workflow automation node for n8n. 12 operations covering market search, pricing, EIP-712 signed trading, and whale tracking. 15 workflow templates. AI agent support. Other Polymarket n8n nodes exist but cannot place trades.</p>
     </div>
 
     <div style="margin-bottom: 32px;">
       <h3 style="color: var(--white); font-size: 16px; margin-bottom: 8px;">Can I build a Polymarket agent with n8n?</h3>
-      <p style="color: var(--text-muted); font-size: 14px;">Yes. Both nodes set usableAsTool, making them available as tools in n8n's AI Agent node. Build autonomous agents that search markets, analyze prices, track whale wallets, and execute trades. The AI Agent Polymarket Trader template demonstrates this end-to-end.</p>
+      <p style="color: var(--text); font-size: 14px;">Yes. Both nodes set usableAsTool, making them available as tools in n8n's AI Agent node. Build autonomous agents that search markets, analyze prices, track whale wallets, and execute trades. The AI Agent Polymarket Trader template demonstrates this end-to-end.</p>
     </div>
 
     <div style="margin-bottom: 32px;">
       <h3 style="color: var(--white); font-size: 16px; margin-bottom: 8px;">How do I track Polymarket whale wallets?</h3>
-      <p style="color: var(--text-muted); font-size: 14px;">The Data resource includes Get Leaderboard (top traders by profit), Get Wallet Positions (any wallet's holdings), Get Wallet Trades (trade history), and Get Market Holders. All public, no API key required. The Smart Money Radar template automates whale alerts to Telegram.</p>
+      <p style="color: var(--text); font-size: 14px;">The Data resource includes Get Leaderboard (top traders by profit), Get Wallet Positions (any wallet's holdings), Get Wallet Trades (trade history), and Get Market Holders. All public, no API key required. The Smart Money Radar template automates whale alerts to Telegram.</p>
     </div>
 
     <div style="margin-bottom: 32px;">
       <h3 style="color: var(--white); font-size: 16px; margin-bottom: 8px;">How do I copy trade on Polymarket?</h3>
-      <p style="color: var(--text-muted); font-size: 14px;">Import the Copy Trader template. It monitors the leaderboard, tracks top trader wallets, detects new trades, and mirrors them with configurable position sizing. Runs in validate-only mode by default for paper trading.</p>
+      <p style="color: var(--text); font-size: 14px;">Import the Copy Trader template. It monitors the leaderboard, tracks top trader wallets, detects new trades, and mirrors them with configurable position sizing. Runs in validate-only mode by default for paper trading.</p>
     </div>
 
     <div style="margin-bottom: 32px;">
       <h3 style="color: var(--white); font-size: 16px; margin-bottom: 8px;">Is there a Polymarket prediction market API integration for workflow automation?</h3>
-      <p style="color: var(--text-muted); font-size: 14px;">n8n-nodes-polymarket-tools wraps the full Polymarket API surface: Gamma API for market discovery, CLOB API for pricing and trading, and Data API for leaderboard and wallet data. It is the most complete Polymarket integration available for any workflow automation platform.</p>
+      <p style="color: var(--text); font-size: 14px;">n8n-nodes-polymarket-tools wraps the full Polymarket API surface: Gamma API for market discovery, CLOB API for pricing and trading, and Data API for leaderboard and wallet data. It is the most complete Polymarket integration available for any workflow automation platform.</p>
     </div>
 
     <div style="margin-bottom: 32px;">
       <h3 style="color: var(--white); font-size: 16px; margin-bottom: 8px;">What Polymarket agents and bots can I build?</h3>
-      <p style="color: var(--text-muted); font-size: 14px;">With n8n-nodes-polymarket-tools you can build: copy trading bots, whale tracking agents, sportsbook edge scanners, AI news-to-market matchers, market making bots, BTC momentum scalpers, portfolio trackers, tax report generators, mispricing scanners, election polling monitors, and resolution watchers. 15 templates are included covering all of these.</p>
+      <p style="color: var(--text); font-size: 14px;">With n8n-nodes-polymarket-tools you can build: copy trading bots, whale tracking agents, sportsbook edge scanners, AI news-to-market matchers, market making bots, BTC momentum scalpers, portfolio trackers, tax report generators, mispricing scanners, election polling monitors, and resolution watchers. 15 templates are included covering all of these.</p>
     </div>
 
     <div style="margin-bottom: 0;">
       <h3 style="color: var(--white); font-size: 16px; margin-bottom: 8px;">Are there Polymarket API rate limits I should know about?</h3>
-      <p style="color: var(--text-muted); font-size: 14px;">Yes. Polymarket enforces rate limits via Cloudflare throttling. Gamma API (market search): 4,000 req/10s. CLOB API (pricing, trading): 9,000 req/10s for reads, 3,500/10s for order placement. Data API (wallets, leaderboard): 1,000 req/10s general, 200/10s for trades, 150/10s for positions. Polling triggers at 1-5 minute intervals stay well under all limits. The node handles 429 responses by extracting the Retry-After header and surfacing it in the error message. Rule of thumb: poll every 1-5 minutes for most workflows, 30 seconds only for single-market price monitoring.</p>
+      <p style="color: var(--text); font-size: 14px;">Yes. Polymarket enforces rate limits via Cloudflare throttling. Gamma API (market search): 4,000 req/10s. CLOB API (pricing, trading): 9,000 req/10s for reads, 3,500/10s for order placement. Data API (wallets, leaderboard): 1,000 req/10s general, 200/10s for trades, 150/10s for positions. Polling triggers at 1-5 minute intervals stay well under all limits. The node handles 429 responses by extracting the Retry-After header and surfacing it in the error message. Rule of thumb: poll every 1-5 minutes for most workflows, 30 seconds only for single-market price monitoring.</p>
     </div>
   </div>
 </section>
