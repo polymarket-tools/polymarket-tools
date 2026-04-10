@@ -2,15 +2,19 @@
 
 **[polymarket-tools.github.io/polymarket-tools](https://polymarket-tools.github.io/polymarket-tools/)** -- Install guide, templates, Claude prompts, and FAQ.
 
-The first n8n community node with full Polymarket trading support -- including EIP-712 order signing, AI agent integration, and workflow templates.
+Open-source n8n community node that brings the full Polymarket prediction market API into workflow automation. Search markets, track whale wallets, get real-time pricing, place EIP-712 signed orders, and build AI-powered trading agents. 12 operations, 3 triggers, 15 workflow templates. Free.
 
-Built for the [Polymarket Builder Program](https://builders.polymarket.com). Every trade placed through this node is tagged with a builder code for volume attribution.
+Built for the [Polymarket Builder Program](https://builders.polymarket.com).
 
-## Why This Exists
+## What This Is
 
-There are two existing Polymarket n8n community nodes. Neither can place a trade. One has placeholder "Coming Soon" errors for all trading operations. The other requires users to pre-sign orders externally and paste raw payloads into the node.
+polymarket-tools connects n8n to Polymarket's Gamma API (market discovery), CLOB API (pricing and trading), and Data API (leaderboard, wallet positions, trade history). It handles EIP-712 order signing via a viem WalletClient, wraps known SDK quirks defensively, and exposes everything as n8n actions and triggers.
 
-**polymarket-tools solves this.** It wraps `@polymarket/clob-client` with a proper viem `WalletClient` for EIP-712 signing, handles the known SDK quirks defensively, and exposes the full Polymarket API surface as n8n actions and triggers.
+Every operation that reads market data, pricing, or wallet information works without credentials. The Polymarket Data API is fully public: you can look up any trader's positions, trade history, and P&L with just their wallet address. The leaderboard ranks every trader by profit. This transparency is what makes Polymarket uniquely automatable.
+
+Trading operations (placing and canceling orders) require Polymarket CLOB API credentials and a wallet private key for EIP-712 signing. The node handles the full order lifecycle: build, sign, submit, track, cancel.
+
+Both nodes support `usableAsTool`, making them available as tools inside n8n's AI Agent node. Build autonomous agents that search markets, analyze prices, and execute trades.
 
 ## What It Does
 

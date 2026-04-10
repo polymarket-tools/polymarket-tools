@@ -25,7 +25,7 @@
     "@type": "SoftwareApplication",
     "name": "n8n-nodes-polymarket-tools",
     "alternateName": "Polymarket Tools for n8n",
-    "description": "The first n8n community node with full Polymarket prediction market trading support. Includes EIP-712 order signing, whale wallet tracking via the Data API, AI agent integration, and 15 demand-backed workflow templates.",
+    "description": "Open-source n8n community node that brings the full Polymarket prediction market API into workflow automation. Connects to Polymarket's Gamma API (market discovery), CLOB API (pricing and EIP-712 signed trading), and Data API (leaderboard, wallet positions, trade history, market holders). 12 operations, 3 polling triggers, AI agent support via usableAsTool, and 15 workflow templates covering whale tracking, copy trading, sportsbook edge detection, AI news matching, tax reports, market making, and more. All read operations work without credentials. Free and MIT licensed.",
     "applicationCategory": "DeveloperApplication",
     "applicationSubCategory": "Workflow Automation",
     "operatingSystem": "Any",
@@ -632,6 +632,30 @@
       <div class="stat">
         <span class="stat-value">4</span>
         <div class="stat-label">Resources</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="about" style="padding: 96px 0; border-top: 1px solid var(--border);">
+  <div class="container">
+    <div class="section-label">What this is</div>
+    <div class="section-title">Full Polymarket API in n8n</div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin-top: 32px;">
+      <div>
+        <p style="color: var(--text); font-size: 15px; line-height: 1.8; margin-bottom: 16px;">polymarket-tools is an open-source n8n community node that connects n8n workflow automation to Polymarket's full API surface. It wraps three Polymarket APIs: the Gamma API for market discovery and search, the CLOB API for real-time pricing and EIP-712 signed order placement, and the Data API for leaderboard rankings, wallet positions, trade history, and market holder analysis.</p>
+
+        <p style="color: var(--text); font-size: 15px; line-height: 1.8; margin-bottom: 16px;">Every read operation works without credentials. Polymarket's Data API is fully public: any trader's positions, trades, and P&L are queryable with just a wallet address. The leaderboard ranks every trader by profit. This transparency makes Polymarket uniquely suited for automated analysis, whale tracking, and signal generation.</p>
+
+        <p style="color: var(--text); font-size: 15px; line-height: 1.8;">Trading operations handle EIP-712 typed data signatures via a viem WalletClient. The node manages the full order lifecycle: build, sign, submit, track, cancel. Limit orders support GTC, GTD, FOK, and FAK time-in-force. A validate-only mode enables paper trading without risk.</p>
+      </div>
+      <div>
+        <p style="color: var(--text); font-size: 15px; line-height: 1.8; margin-bottom: 16px;">Both nodes set <code style="background: var(--bg-card); color: var(--amber); padding: 2px 6px; border-radius: 3px; font-family: var(--mono); font-size: 13px;">usableAsTool</code>, making them available as tools inside n8n's AI Agent node. This enables autonomous agents that search markets, analyze prices, track whale wallets, and execute trades based on AI reasoning.</p>
+
+        <p style="color: var(--text); font-size: 15px; line-height: 1.8; margin-bottom: 16px;">15 workflow templates ship with the node. Each template is a complete, importable n8n workflow built from real demand in the Polymarket trading ecosystem: whale trade alerts, copy trading, sportsbook edge detection, AI news-to-market matching, tax report generation, market making, BTC momentum scalping, portfolio tracking, election polling divergence, and more.</p>
+
+        <p style="color: var(--text); font-size: 15px; line-height: 1.8;">The node is free, MIT licensed, and published to npm as <code style="background: var(--bg-card); color: var(--amber); padding: 2px 6px; border-radius: 3px; font-family: var(--mono); font-size: 13px;">n8n-nodes-polymarket-tools</code>. Install it in any n8n instance (self-hosted or Cloud) via Settings > Community Nodes.</p>
       </div>
     </div>
   </div>
