@@ -56,6 +56,12 @@ async function main() {
   // When db + Transak are configured, create TransakWebhookHandler and call
   // transakHandler.registerRoutes(app). Requires TRANSAK_WEBHOOK_SECRET env var.
 
+  // Daily P&L digest scheduler
+  // When db is ready, create DigestScheduler and call digestScheduler.start().
+  // import { DigestScheduler } from './digest';
+  // const digestScheduler = new DigestScheduler({ userQueries, tradeQueries, copyConfigQueries, dataApi, notify });
+  // digestScheduler.start();
+
   const server = app.listen(config.port, () => {
     logger.info({ port: config.port }, 'HTTP server listening');
   });

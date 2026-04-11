@@ -15,6 +15,7 @@ import { depositCommand } from './commands/deposit';
 import { copyCommand, stopCommand, copiesCommand } from './commands/copy';
 import { alertsCommand } from './commands/alerts';
 import { switchCommand } from './commands/switch';
+import { digestCommand } from './commands/digest';
 import { requireUser } from './guards';
 
 // ---------------------------------------------------------------------------
@@ -161,6 +162,7 @@ export function createBot(
   bot.command('copies', copiesCommand);
   bot.command('alerts', alertsCommand);
   bot.command('switch', switchCommand);
+  bot.command('digest', digestCommand);
 
   // -- Callback queries --------------------------------------------------
   bot.callbackQuery('deposit:manual', async (ctx) => {
