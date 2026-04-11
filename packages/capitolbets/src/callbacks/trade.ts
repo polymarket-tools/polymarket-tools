@@ -2,23 +2,21 @@ import { formatUnits, type Hex } from 'viem';
 import type { BotContext } from '../bot';
 import type { TradingEngine } from '../trading';
 import type { DepositMonitor } from '../deposit-monitor';
-import type { UserQueries } from '../db-queries';
+import { USDC_DECIMALS } from '../constants';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const USDC_DECIMALS = 6;
-
 /**
  * Regex to parse trade callback data.
- * Format: trade:SIDE:TOKEN_ID:AMOUNT
+ * Format: trade:SIDE:TOKEN_ID:CONDITION_ID:AMOUNT
  * Examples:
- *   trade:BUY:12345678901234567890:50
- *   trade:SELL:98765432109876543210:100
+ *   trade:BUY:12345678901234567890:0xabc123:50
+ *   trade:SELL:98765432109876543210:0xdef456:100
  */
 const TRADE_CALLBACK_RE =
-  /^trade:(BUY|SELL):([a-zA-Z0-9]+):(\d+(?:\.\d+)?)$/;
+  /^trade:(BUY|SELL):([a-zA-Z0-9]+):([a-zA-Z0-9]+):(\d+(?:\.\d+)?)$/;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,12 +25,12 @@ const TRADE_CALLBACK_RE =
 export interface TradeCallbackDeps {
   tradingEngine: TradingEngine;
   depositMonitor: DepositMonitor;
-  userQueries: UserQueries;
 }
 
 interface ParsedTradeCallback {
   side: 'BUY' | 'SELL';
   tokenId: string;
+  conditionId: string;
   amount: number;
 }
 
@@ -50,11 +48,12 @@ export function parseTradeCallback(data: string): ParsedTradeCallback | null {
 
   const side = match[1] as 'BUY' | 'SELL';
   const tokenId = match[2];
-  const amount = parseFloat(match[3]);
+  const conditionId = match[3];
+  const amount = parseFloat(match[4]);
 
   if (isNaN(amount) || amount <= 0) return null;
 
-  return { side, tokenId, amount };
+  return { side, tokenId, conditionId, amount };
 }
 
 // ---------------------------------------------------------------------------
@@ -67,7 +66,7 @@ export function parseTradeCallback(data: string): ParsedTradeCallback | null {
  * Registered on the bot via:
  *   bot.on('callback_query:data', tradeCallbackHandler)
  *
- * Callback data format: trade:BUY:TOKEN_ID:AMOUNT or trade:SELL:TOKEN_ID:AMOUNT
+ * Callback data format: trade:SIDE:TOKEN_ID:CONDITION_ID:AMOUNT
  */
 export function createTradeCallbackHandler(deps: TradeCallbackDeps) {
   return async function tradeCallbackHandler(ctx: BotContext): Promise<void> {
@@ -80,20 +79,16 @@ export function createTradeCallbackHandler(deps: TradeCallbackDeps) {
     // Acknowledge the callback immediately to stop the loading spinner
     await ctx.answerCallbackQuery();
 
-    const { side, tokenId, amount } = parsed;
+    const { side, tokenId, conditionId, amount } = parsed;
 
-    // -- User check ---------------------------------------------------------
-    const telegramId = ctx.from?.id;
-    if (!telegramId) {
-      await editOrReply(ctx, 'Could not identify your account.');
-      return;
-    }
-
-    const user = deps.userQueries.getByTelegramId(telegramId);
+    // -- User check (ctx.user is loaded by bot middleware) -------------------
+    const user = ctx.user;
     if (!user) {
       await editOrReply(ctx, 'You need to set up your wallet first. Type /start');
       return;
     }
+
+    const telegramId = user.telegram_id;
 
     // -- Balance check ------------------------------------------------------
     try {
@@ -142,7 +137,7 @@ export function createTradeCallbackHandler(deps: TradeCallbackDeps) {
       const result = await deps.tradingEngine.executeTrade({
         user,
         tokenId,
-        conditionId: '', // TODO: resolve conditionId from tokenId via Gamma lookup
+        conditionId,
         side,
         amount,
         price: currentPrice,
@@ -168,7 +163,7 @@ export function createTradeCallbackHandler(deps: TradeCallbackDeps) {
       } else {
         await editOrReply(
           ctx,
-          `Trade failed. ${result.error ?? 'Your balance was not charged.'}`,
+          `Trade failed. ${result.error ?? 'Check your balance -- a fee may have been charged.'}`,
         );
       }
     } catch (error) {
@@ -178,7 +173,7 @@ export function createTradeCallbackHandler(deps: TradeCallbackDeps) {
       );
       await editOrReply(
         ctx,
-        'Trade failed. Your balance was not charged.',
+        'Trade failed. Check your balance -- a fee may have been charged.',
       );
     }
   };

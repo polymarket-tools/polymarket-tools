@@ -1,11 +1,9 @@
 import { formatUnits } from 'viem';
 import type { BotContext } from '../bot';
+import { requireUser } from '../guards';
 
 export async function balanceCommand(ctx: BotContext): Promise<void> {
-  if (!ctx.user) {
-    await ctx.reply('You need to set up your wallet first. Type /start');
-    return;
-  }
+  if (!requireUser(ctx)) return;
 
   const depositMonitor = ctx.depositMonitor;
   if (!depositMonitor) {

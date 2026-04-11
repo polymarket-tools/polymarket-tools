@@ -1,24 +1,14 @@
-import { formatUnits, parseUnits, encodeFunctionData, parseAbi } from 'viem';
-import { createWalletClient, http } from 'viem';
-import { polygon } from 'viem/chains';
+import { formatUnits } from 'viem';
 import type { Hex } from 'viem';
 import type { BotContext } from '../bot';
-
-/** Native USDC on Polygon (6 decimals) */
-const USDC_ADDRESS = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359' as const;
-const USDC_DECIMALS = 6;
-
-const ERC20_ABI = parseAbi([
-  'function transfer(address to, uint256 amount) returns (bool)',
-]);
+import { requireUser } from '../guards';
+import { sendUsdcFromSafe } from '../safe-utils';
+import { USDC_DECIMALS } from '../constants';
 
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
 export async function withdrawCommand(ctx: BotContext): Promise<void> {
-  if (!ctx.user) {
-    await ctx.reply('You need to set up your wallet first. Type /start');
-    return;
-  }
+  if (!requireUser(ctx)) return;
 
   const text = ctx.message?.text ?? '';
   const parts = text.replace(/^\/withdraw\s*/, '').trim().split(/\s+/);
@@ -66,46 +56,13 @@ export async function withdrawCommand(ctx: BotContext): Promise<void> {
 
     await ctx.reply('Processing withdrawal...');
 
-    // Build the USDC transfer data
-    const transferAmount = parseUnits(amount.toString(), USDC_DECIMALS);
-    const transferData = encodeFunctionData({
-      abi: ERC20_ABI,
-      functionName: 'transfer',
-      args: [toAddress as Hex, transferAmount],
-    });
-
-    // Get the Safe instance
+    // Execute USDC transfer from Safe
     const safe = await walletManager.getSafe(
       ctx.user.safe_address,
       ctx.user.signer_address as Hex
     );
 
-    // Create Safe transaction
-    const safeTx = await safe.createTransaction({
-      transactions: [
-        {
-          to: USDC_ADDRESS,
-          data: transferData,
-          value: '0',
-        },
-      ],
-    });
-
-    // Sign with Privy wallet
-    const signer = walletManager.getSignerForUser(
-      ctx.user.privy_wallet_id,
-      ctx.user.signer_address as Hex
-    );
-
-    const walletClient = createWalletClient({
-      account: signer,
-      chain: polygon,
-      transport: http(ctx.config.polygonRpcUrl),
-    });
-
-    // Execute the Safe transaction
-    const executeTxResponse = await safe.executeTransaction(safeTx);
-    const txHash = executeTxResponse.hash;
+    const txHash = await sendUsdcFromSafe(safe, toAddress, amount);
 
     await ctx.reply(
       `Withdrawal sent!\n\n` +

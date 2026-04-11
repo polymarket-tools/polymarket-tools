@@ -1,12 +1,10 @@
 import { InlineKeyboard } from 'grammy';
 import type { BotContext } from '../bot';
 import { generateTransakUrl } from '../transak';
+import { requireUser } from '../guards';
 
 export async function depositCommand(ctx: BotContext): Promise<void> {
-  if (!ctx.user) {
-    await ctx.reply('You need to set up your wallet first. Type /start');
-    return;
-  }
+  if (!requireUser(ctx)) return;
 
   const safeAddress = ctx.user.safe_address;
   const transakApiKey = ctx.config.transakApiKey;

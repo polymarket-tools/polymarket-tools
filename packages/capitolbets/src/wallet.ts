@@ -31,6 +31,7 @@ const SALT_NONCE = '0'; // deterministic per-user
 export class WalletManager {
   private privy: PrivyClient;
   private polygonRpcUrl: string;
+  private safeCache = new Map<string, Safe>();
 
   constructor(params: {
     privyAppId: string;
@@ -111,18 +112,23 @@ export class WalletManager {
 
   /**
    * Get a Safe Protocol Kit instance for a deployed Safe.
-   * The signer is the Privy server wallet address.
+   * Instances are cached by safeAddress for reuse.
    */
   async getSafe(
     safeAddress: string,
     signerAddress: Hex
   ): Promise<Safe> {
+    const cacheKey = `${safeAddress}:${signerAddress}`;
+    const cached = this.safeCache.get(cacheKey);
+    if (cached) return cached;
+
     const safe = await Safe.init({
       provider: this.polygonRpcUrl,
       signer: signerAddress,
       safeAddress,
     });
 
+    this.safeCache.set(cacheKey, safe);
     return safe;
   }
 

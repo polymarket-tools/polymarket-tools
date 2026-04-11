@@ -21,20 +21,21 @@ function formatVolume(volume: number): string {
 
 /**
  * Build inline keyboard with Buy YES / Buy NO buttons at $25, $50, $100.
+ * Callback data format: trade:SIDE:TOKEN_ID:CONDITION_ID:AMOUNT
  */
-function buildTradeButtons(yesTokenId: string, noTokenId: string): InlineKeyboard {
+function buildTradeButtons(yesTokenId: string, noTokenId: string, conditionId: string): InlineKeyboard {
   const amounts = [25, 50, 100];
   const keyboard = new InlineKeyboard();
 
   // Row 1: Buy YES at each amount
   for (const amount of amounts) {
-    keyboard.text(`Buy YES $${amount}`, `trade:BUY:${yesTokenId}:${amount}`);
+    keyboard.text(`Buy YES $${amount}`, `trade:BUY:${yesTokenId}:${conditionId}:${amount}`);
   }
   keyboard.row();
 
   // Row 2: Buy NO at each amount
   for (const amount of amounts) {
-    keyboard.text(`Buy NO $${amount}`, `trade:BUY:${noTokenId}:${amount}`);
+    keyboard.text(`Buy NO $${amount}`, `trade:BUY:${noTokenId}:${conditionId}:${amount}`);
   }
 
   return keyboard;
@@ -74,7 +75,7 @@ export async function searchCommand(ctx: BotContext): Promise<void> {
     const vol = formatVolume(market.volume);
     const line = `${i + 1}. "${market.question}"\n   YES $${yesToken.price.toFixed(2)} | ${vol} vol`;
 
-    const keyboard = buildTradeButtons(yesToken.tokenId, noToken.tokenId);
+    const keyboard = buildTradeButtons(yesToken.tokenId, noToken.tokenId, market.conditionId);
     await ctx.reply(line, { reply_markup: keyboard });
   }
 }

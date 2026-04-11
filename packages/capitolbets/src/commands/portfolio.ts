@@ -1,13 +1,11 @@
 import { DataApiClient } from '@polymarket-tools/core';
 import type { BotContext } from '../bot';
+import { requireUser } from '../guards';
 
 const dataApi = new DataApiClient();
 
 export async function portfolioCommand(ctx: BotContext): Promise<void> {
-  if (!ctx.user) {
-    await ctx.reply('You need to set up your wallet first. Type /start');
-    return;
-  }
+  if (!requireUser(ctx)) return;
 
   try {
     const positions = await dataApi.getWalletPositions(ctx.user.safe_address);

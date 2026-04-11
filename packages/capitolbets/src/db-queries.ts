@@ -75,7 +75,7 @@ function mapUser(row: UserRow): User {
 }
 
 function mapTrade(row: TradeRow): Trade {
-  return row as unknown as Trade;
+  return { ...row, side: row.side as Trade['side'], source: row.source as Trade['source'] };
 }
 
 function mapCopyConfig(row: CopyConfigRow): CopyConfig {

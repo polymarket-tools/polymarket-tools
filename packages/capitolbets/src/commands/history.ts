@@ -1,5 +1,6 @@
 import type { BotContext } from '../bot';
 import type { Trade } from '../types';
+import { requireUser } from '../guards';
 
 /**
  * Format a timestamp as a relative time string: "2h ago", "1d ago", etc.
@@ -37,10 +38,7 @@ function formatTrade(trade: Trade): string {
 }
 
 export async function historyCommand(ctx: BotContext): Promise<void> {
-  if (!ctx.user) {
-    await ctx.reply('You need to set up your wallet first. Type /start');
-    return;
-  }
+  if (!requireUser(ctx)) return;
 
   if (!ctx.tradeQueries) {
     await ctx.reply('Trade history is temporarily unavailable. Please try again later.');

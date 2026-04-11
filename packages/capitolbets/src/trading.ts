@@ -2,31 +2,21 @@ import { ClobClient, SignatureType } from '@polymarket/clob-client';
 import { ClobPublicClient } from '@polymarket-tools/core';
 import type { ClobTradingConfig } from '@polymarket-tools/core';
 import {
-  encodeFunctionData,
-  parseAbi,
-  parseUnits,
   type Hex,
 } from 'viem';
 import { createWalletClient, http } from 'viem';
 import { polygon } from 'viem/chains';
-import type Safe from '@safe-global/protocol-kit';
 import type { TradeResult, User } from './types';
 import type { WalletManager } from './wallet';
 import type { TradeQueries } from './db-queries';
+import { sendUsdcFromSafe } from './safe-utils';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Native USDC on Polygon (6 decimals) */
-const USDC_ADDRESS = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359' as const;
-const USDC_DECIMALS = 6;
 const CLOB_HOST = 'https://clob.polymarket.com';
 const POLYGON_CHAIN_ID = 137;
-
-const ERC20_ABI = parseAbi([
-  'function transfer(address to, uint256 amount) returns (bool)',
-]);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -85,6 +75,9 @@ export class TradingEngine {
 
   /** Cache of per-user CLOB API credentials (keyed by telegram_id) */
   private credentialCache = new Map<number, UserClobCreds>();
+
+  /** Lazy singleton for the builder signing config */
+  private builderConfigPromise: Promise<any> | null = null;
 
   constructor(params: {
     feeCollectionAddress: string;
@@ -243,33 +236,14 @@ export class TradingEngine {
 
   /**
    * Transfer fee USDC from user's Safe to the fee collection address.
-   * Uses the same pattern as the withdraw command.
    */
   private async collectFee(user: User, feeAmount: number): Promise<string> {
-    const transferAmount = parseUnits(feeAmount.toString(), USDC_DECIMALS);
-    const transferData = encodeFunctionData({
-      abi: ERC20_ABI,
-      functionName: 'transfer',
-      args: [this.feeCollectionAddress as Hex, transferAmount],
-    });
-
     const safe = await this.walletManager.getSafe(
       user.safe_address,
       user.signer_address as Hex,
     );
 
-    const safeTx = await safe.createTransaction({
-      transactions: [
-        {
-          to: USDC_ADDRESS,
-          data: transferData,
-          value: '0',
-        },
-      ],
-    });
-
-    const result = await safe.executeTransaction(safeTx);
-    return result.hash;
+    return sendUsdcFromSafe(safe, this.feeCollectionAddress, feeAmount);
   }
 
   // -----------------------------------------------------------------------
@@ -324,11 +298,8 @@ export class TradingEngine {
       this.credentialCache.set(user.telegram_id, creds);
     }
 
-    // Build the builder config for revenue attribution
-    const { BuilderConfig } = await import('@polymarket/builder-signing-sdk');
-    const builderConfig = new BuilderConfig({
-      remoteBuilderConfig: { url: this.builderSignerUrl },
-    });
+    // Build the builder config for revenue attribution (cached singleton)
+    const builderConfig = await this.getBuilderConfig();
 
     // Create the authenticated client with user creds + builder config
     return new ClobClient(
@@ -342,6 +313,22 @@ export class TradingEngine {
       undefined, // useServerTime
       builderConfig,
     );
+  }
+
+  /**
+   * Lazy singleton for the BuilderConfig.
+   * Avoids re-importing and re-constructing on every trade.
+   */
+  private getBuilderConfig(): Promise<any> {
+    if (!this.builderConfigPromise) {
+      this.builderConfigPromise = import('@polymarket/builder-signing-sdk').then(
+        ({ BuilderConfig }) =>
+          new BuilderConfig({
+            remoteBuilderConfig: { url: this.builderSignerUrl },
+          }),
+      );
+    }
+    return this.builderConfigPromise;
   }
 
   /**

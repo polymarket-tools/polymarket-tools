@@ -9,18 +9,11 @@ import {
 } from 'viem';
 import { polygon } from 'viem/chains';
 import type { Database } from './db';
+import { USDC_ADDRESS, USDC_E_ADDRESS, USDC_DECIMALS } from './constants';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-/** Native USDC on Polygon (6 decimals) */
-const USDC_ADDRESS: Address = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359';
-
-/** Bridged USDC.e on Polygon (6 decimals) */
-const USDC_E_ADDRESS: Address = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174';
-
-const USDC_DECIMALS = 6;
 
 const TRANSFER_ABI = parseAbi([
   'event Transfer(address indexed from, address indexed to, uint256 value)',
@@ -147,28 +140,34 @@ export class DepositMonitor {
     const fromBlock = this.lastCheckedBlock + 1n;
     const toBlock = currentBlock;
 
-    // Query Transfer logs for both USDC contracts
+    // Query Transfer logs for both USDC contracts in parallel
     const allLogs: Log[] = [];
-    for (const tokenAddress of [USDC_ADDRESS, USDC_E_ADDRESS]) {
-      try {
-        const logs = await this.client.getLogs({
-          address: tokenAddress,
+    const toAddresses = [...this.safeAddressMap.keys()] as Address[];
+    try {
+      const [usdcLogs, usdcELogs] = await Promise.all([
+        this.client.getLogs({
+          address: USDC_ADDRESS as Address,
           event: TRANSFER_ABI[0] as any,
-          args: {
-            to: [...this.safeAddressMap.keys()] as Address[],
-          },
+          args: { to: toAddresses },
           fromBlock,
           toBlock,
-        });
-        allLogs.push(...logs);
-      } catch (err) {
-        console.error(
-          `[DepositMonitor] Failed to get logs for ${tokenAddress}:`,
-          err,
-        );
-        // Don't advance lastCheckedBlock if we failed
-        return;
-      }
+        }),
+        this.client.getLogs({
+          address: USDC_E_ADDRESS as Address,
+          event: TRANSFER_ABI[0] as any,
+          args: { to: toAddresses },
+          fromBlock,
+          toBlock,
+        }),
+      ]);
+      allLogs.push(...usdcLogs, ...usdcELogs);
+    } catch (err) {
+      console.error(
+        `[DepositMonitor] Failed to get logs:`,
+        err,
+      );
+      // Don't advance lastCheckedBlock if we failed
+      return;
     }
 
     // Process each matching transfer

@@ -12,6 +12,7 @@ import { portfolioCommand } from './commands/portfolio';
 import { withdrawCommand } from './commands/withdraw';
 import { historyCommand } from './commands/history';
 import { depositCommand } from './commands/deposit';
+import { requireUser } from './guards';
 
 // ---------------------------------------------------------------------------
 // Context
@@ -152,14 +153,13 @@ export function createBot(
 
   // -- Callback queries --------------------------------------------------
   bot.callbackQuery('deposit:manual', async (ctx) => {
-    const user = ctx.user;
-    if (!user) {
-      await ctx.answerCallbackQuery({ text: 'Please /start first.' });
+    if (!requireUser(ctx)) {
+      await ctx.answerCallbackQuery();
       return;
     }
     await ctx.answerCallbackQuery();
     await ctx.reply(
-      `Send USDC (Polygon) to your deposit address:\n\n\`${user.safe_address}\`\n\nOnly send USDC on the Polygon network.`,
+      `Send USDC (Polygon) to your deposit address:\n\n\`${ctx.user.safe_address}\`\n\nOnly send USDC on the Polygon network.`,
       { parse_mode: 'Markdown' }
     );
   });
