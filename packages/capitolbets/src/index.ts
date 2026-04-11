@@ -52,6 +52,10 @@ async function main() {
   // Will be fully wired when Database is initialized (Task 1.2 TODO above).
   // When db is ready, create AlertRouter and call alertRouter.registerRoutes(app).
 
+  // Transak fiat on-ramp webhook (POST /api/transak/webhook)
+  // When db + Transak are configured, create TransakWebhookHandler and call
+  // transakHandler.registerRoutes(app). Requires TRANSAK_WEBHOOK_SECRET env var.
+
   const server = app.listen(config.port, () => {
     logger.info({ port: config.port }, 'HTTP server listening');
   });
