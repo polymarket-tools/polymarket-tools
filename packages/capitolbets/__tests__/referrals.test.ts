@@ -39,6 +39,7 @@ describe('ReferralService', () => {
     mockUserQueries = {
       getByTelegramId: vi.fn(),
       setReferredBy: vi.fn(),
+      countReferredBy: vi.fn().mockReturnValue(0),
       listAll: vi.fn().mockReturnValue([]),
     };
     service = new ReferralService(mockUserQueries);
@@ -141,11 +142,7 @@ describe('ReferralService', () => {
 
   describe('getReferralStats', () => {
     it('returns stats with correct referral count', () => {
-      mockUserQueries.listAll.mockReturnValue([
-        createMockUser({ telegram_id: 200, referred_by: 100 }),
-        createMockUser({ telegram_id: 300, referred_by: 100 }),
-        createMockUser({ telegram_id: 400, referred_by: 500 }), // different referrer
-      ]);
+      mockUserQueries.countReferredBy.mockReturnValue(2);
 
       const stats = service.getReferralStats(100);
 
@@ -154,9 +151,7 @@ describe('ReferralService', () => {
     });
 
     it('returns zero count when no referrals', () => {
-      mockUserQueries.listAll.mockReturnValue([
-        createMockUser({ telegram_id: 200, referred_by: 500 }),
-      ]);
+      mockUserQueries.countReferredBy.mockReturnValue(0);
 
       const stats = service.getReferralStats(100);
 

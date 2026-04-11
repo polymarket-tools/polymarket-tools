@@ -170,6 +170,20 @@ export class UserQueries {
     return rows.map(mapUser);
   }
 
+  getByWalletAddress(address: string): User | undefined {
+    const row = this.db.raw
+      .prepare('SELECT * FROM users WHERE LOWER(safe_address) = LOWER(?)')
+      .get(address) as UserRow | undefined;
+    return row ? mapUser(row) : undefined;
+  }
+
+  countReferredBy(telegramId: number): number {
+    const row = this.db.raw
+      .prepare('SELECT COUNT(*) as count FROM users WHERE referred_by = ?')
+      .get(telegramId) as { count: number };
+    return row.count;
+  }
+
   listAll(): User[] {
     const rows = this.db.raw
       .prepare('SELECT * FROM users')

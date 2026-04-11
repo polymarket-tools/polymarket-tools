@@ -34,6 +34,7 @@ export class DigestScheduler {
   private dataApi: DataApiClient;
   private notify: DigestNotifyFn;
   private intervalId: ReturnType<typeof setInterval> | null = null;
+  private isSending = false;
 
   constructor(deps: DigestSchedulerDeps) {
     this.userQueries = deps.userQueries;
@@ -55,10 +56,15 @@ export class DigestScheduler {
 
     // Check every 15 minutes
     this.intervalId = setInterval(() => {
-      if (this.isDigestTime()) {
-        this.sendAllDigests().catch((err) => {
-          console.error('[DigestScheduler] Error sending digests:', err);
-        });
+      if (this.isDigestTime() && !this.isSending) {
+        this.isSending = true;
+        this.sendAllDigests()
+          .catch((err) => {
+            console.error('[DigestScheduler] Error sending digests:', err);
+          })
+          .finally(() => {
+            this.isSending = false;
+          });
       }
     }, 15 * 60 * 1000);
 

@@ -88,15 +88,7 @@ export class ReferralService {
    * Get referral stats for a user, including count, earnings, and share link.
    */
   getReferralStats(telegramId: number): ReferralStats {
-    const allUsers = this.userQueries.listAll();
-    const referredUsers = allUsers.filter(
-      (u) => u.referred_by === telegramId,
-    );
-
-    // Calculate earnings from referred users' trades
-    // In production, this would be tracked in a dedicated referral_earnings table.
-    // For now, we count referred users and estimate from fee structure.
-    const referralCount = referredUsers.length;
+    const referralCount = this.userQueries.countReferredBy(telegramId);
 
     return {
       referralCount,

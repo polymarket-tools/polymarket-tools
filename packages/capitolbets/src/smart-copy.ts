@@ -136,7 +136,11 @@ export class SmartCopyScorer {
       pnlByMarket.set(pos.market, existing + pos.cashPnl);
     }
 
-    // Group trades by category
+    // Pre-fetch all unique market categories in parallel (avoids N+1 API calls)
+    const uniqueIds = [...new Set(trades.map(t => t.market))];
+    await Promise.all(uniqueIds.map(id => this.getMarketCategory(id)));
+
+    // Group trades by category (all cache hits now)
     const categoryMap = new Map<string, { wins: number; total: number; pnl: number }>();
 
     for (const trade of trades) {

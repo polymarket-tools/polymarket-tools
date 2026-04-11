@@ -146,14 +146,19 @@ export class LeaderboardService {
     leaderTelegramId: number | null,
     referrerTelegramId: number | null,
   ): FeeSplit {
-    const leaderShare = leaderTelegramId ? totalFee * 0.10 : 0;
-    const referrerShare = referrerTelegramId ? totalFee * 0.15 : 0;
-    const capitolBetsShare = totalFee - leaderShare - referrerShare;
+    const roundedLeader = leaderTelegramId
+      ? Math.round(totalFee * 0.10 * 100) / 100
+      : 0;
+    const roundedReferrer = referrerTelegramId
+      ? Math.round(totalFee * 0.15 * 100) / 100
+      : 0;
+    // Compute CapitolBets last as remainder to prevent rounding drift
+    const capitolBetsShare = Math.round((totalFee - roundedLeader - roundedReferrer) * 100) / 100;
 
     return {
-      capitolBets: Math.round(capitolBetsShare * 100) / 100,
-      leader: Math.round(leaderShare * 100) / 100,
-      referrer: Math.round(referrerShare * 100) / 100,
+      capitolBets: capitolBetsShare,
+      leader: roundedLeader,
+      referrer: roundedReferrer,
     };
   }
 

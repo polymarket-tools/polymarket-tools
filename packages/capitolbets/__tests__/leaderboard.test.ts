@@ -210,11 +210,12 @@ describe('LeaderboardService', () => {
     it('splits fee with both leader and referrer', () => {
       const split = service.calculateFeeSplit(0.50, 100, 200);
 
-      expect(split.capitolBets).toBe(0.38); // 75%
       expect(split.leader).toBe(0.05);      // 10%
       expect(split.referrer).toBe(0.08);    // 15%
-      // Total should equal original fee (within rounding)
-      expect(split.capitolBets + split.leader + split.referrer).toBeCloseTo(0.50, 1);
+      // CapitolBets computed as remainder to prevent rounding drift
+      expect(split.capitolBets).toBe(0.37);
+      // Total must equal original fee exactly
+      expect(split.capitolBets + split.leader + split.referrer).toBe(0.50);
     });
 
     it('gives leader share to CapitolBets when no leader', () => {
@@ -222,7 +223,7 @@ describe('LeaderboardService', () => {
 
       expect(split.leader).toBe(0);
       expect(split.referrer).toBe(0.08);
-      expect(split.capitolBets).toBe(0.43); // 75% + leader's 10%
+      expect(split.capitolBets).toBe(0.42); // remainder after referrer
     });
 
     it('gives referrer share to CapitolBets when no referrer', () => {
@@ -245,9 +246,10 @@ describe('LeaderboardService', () => {
       // $100 * 0.005 = $0.50 fee
       const split = service.calculateFeeSplit(0.50, 100, 200);
 
-      expect(split.capitolBets).toBe(0.38);  // $0.375 rounded
       expect(split.leader).toBe(0.05);        // $0.05
       expect(split.referrer).toBe(0.08);      // $0.075 rounded
+      expect(split.capitolBets).toBe(0.37);   // remainder: $0.50 - $0.05 - $0.08
+      expect(split.capitolBets + split.leader + split.referrer).toBe(0.50);
     });
   });
 });

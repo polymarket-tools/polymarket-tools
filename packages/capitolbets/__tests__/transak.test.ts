@@ -77,10 +77,14 @@ describe('TransakWebhookHandler', () => {
   beforeEach(() => {
     mockNotify = vi.fn<TransakNotifyFn>().mockResolvedValue(undefined);
     mockUserQueries = {
-      listAll: vi.fn().mockReturnValue([
-        createMockUser({ telegram_id: 12345, safe_address: '0xSafe123Abc' }),
-        createMockUser({ telegram_id: 67890, safe_address: '0xOtherSafe' }),
-      ]),
+      getByWalletAddress: vi.fn().mockImplementation((address: string) => {
+        const users = [
+          createMockUser({ telegram_id: 12345, safe_address: '0xSafe123Abc' }),
+          createMockUser({ telegram_id: 67890, safe_address: '0xOtherSafe' }),
+        ];
+        const normalized = address.toLowerCase();
+        return users.find(u => u.safe_address.toLowerCase() === normalized);
+      }),
     };
 
     handler = new TransakWebhookHandler({

@@ -31,11 +31,8 @@ export function createLeaderboardCommand(deps: {
       const pnlStr = entry.pnl >= 0 ? `+$${entry.pnl.toFixed(0)}` : `-$${Math.abs(entry.pnl).toFixed(0)}`;
       const winStr = `${Math.round(entry.win_rate * 100)}%`;
 
-      // Try to get the user for display
       const user = deps.userQueries.getByTelegramId(entry.user_telegram_id);
-      const displayName = user
-        ? `Trader #${entry.user_telegram_id}`
-        : `Trader #${entry.user_telegram_id}`;
+      const displayName = `Trader #${entry.user_telegram_id}`;
 
       text += `\n${i + 1}. ${displayName}   ${pnlStr}   ${winStr} win rate`;
 

@@ -157,11 +157,6 @@ export class TransakWebhookHandler {
    * Find a user by their Safe wallet address.
    */
   private findUserByWallet(walletAddress: string): { telegram_id: number } | null {
-    const allUsers = this.userQueries.listAll();
-    const normalized = walletAddress.toLowerCase();
-    const user = allUsers.find(
-      (u) => u.safe_address.toLowerCase() === normalized,
-    );
-    return user ?? null;
+    return this.userQueries.getByWalletAddress(walletAddress) ?? null;
   }
 }
