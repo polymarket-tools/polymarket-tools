@@ -1,0 +1,16 @@
+# Docker context ignore — used when building from monorepo root
+node_modules
+**/node_modules
+**/dist
+**/__tests__
+**/*.test.ts
+.env
+.env.*
+.git
+.gitignore
+*.md
+docs/
+packages/n8n-nodes/
+packages/builder-signer/
+docker-compose*.yml
+Dockerfile.dev

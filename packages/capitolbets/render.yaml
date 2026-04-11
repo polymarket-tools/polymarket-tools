@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: capitolbets-bot
+    runtime: docker
+    dockerfilePath: packages/capitolbets/Dockerfile
+    dockerContext: .
+    plan: starter
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: PRIVY_APP_ID
+        sync: false
+      - key: PRIVY_APP_SECRET
+        sync: false
+      - key: FEE_COLLECTION_ADDRESS
+        sync: false
+      - key: POLYGON_RPC_URL
+        sync: false
+      - key: ADMIN_TELEGRAM_ID
+        sync: false
+      - key: DATABASE_PATH
+        value: /data/capitolbets.db
+      - key: PORT
+        value: "3000"
+      - key: NODE_ENV
+        value: production
+    disk:
+      name: capitolbets-data
+      mountPath: /data
+      sizeGB: 1
