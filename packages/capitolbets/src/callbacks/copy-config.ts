@@ -202,8 +202,8 @@ export function createCopyConfigCallbackHandler(copyConfigQueries: CopyConfigQue
       );
       await ctx.editMessageText(
         `Edit copy config: ${formatWallet(config.target_wallet)}`,
+        { reply_markup: keyboard },
       );
-      await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
       await ctx.answerCallbackQuery();
       return;
     }
