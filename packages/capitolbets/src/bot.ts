@@ -2,10 +2,16 @@ import { Bot, Context } from 'grammy';
 import type { AppConfig } from './config';
 import type { User } from './types';
 import type { WalletManager } from './wallet';
-import type { UserQueries } from './db-queries';
+import type { DepositMonitor } from './deposit-monitor';
+import type { UserQueries, TradeQueries } from './db-queries';
 import { startCommand } from './commands/start';
 import { helpCommand } from './commands/help';
 import { searchCommand } from './commands/search';
+import { balanceCommand } from './commands/balance';
+import { portfolioCommand } from './commands/portfolio';
+import { withdrawCommand } from './commands/withdraw';
+import { historyCommand } from './commands/history';
+import { depositCommand } from './commands/deposit';
 
 // ---------------------------------------------------------------------------
 // Context
@@ -18,6 +24,8 @@ export interface BotContext extends Context {
   db: unknown;
   walletManager: WalletManager | null;
   userQueries: UserQueries | null;
+  depositMonitor: DepositMonitor | null;
+  tradeQueries: TradeQueries | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -76,6 +84,8 @@ function createRateLimiter() {
 export interface BotDependencies {
   walletManager?: WalletManager | null;
   userQueries?: UserQueries | null;
+  depositMonitor?: DepositMonitor | null;
+  tradeQueries?: TradeQueries | null;
 }
 
 export function createBot(
@@ -97,6 +107,8 @@ export function createBot(
     ctx.user = null;
     ctx.walletManager = deps.walletManager ?? null;
     ctx.userQueries = deps.userQueries ?? null;
+    ctx.depositMonitor = deps.depositMonitor ?? null;
+    ctx.tradeQueries = deps.tradeQueries ?? null;
     await next();
   });
 
@@ -132,6 +144,25 @@ export function createBot(
   bot.command('start', startCommand);
   bot.command('help', helpCommand);
   bot.command('search', searchCommand);
+  bot.command('balance', balanceCommand);
+  bot.command('portfolio', portfolioCommand);
+  bot.command('withdraw', withdrawCommand);
+  bot.command('history', historyCommand);
+  bot.command('deposit', depositCommand);
+
+  // -- Callback queries --------------------------------------------------
+  bot.callbackQuery('deposit:manual', async (ctx) => {
+    const user = ctx.user;
+    if (!user) {
+      await ctx.answerCallbackQuery({ text: 'Please /start first.' });
+      return;
+    }
+    await ctx.answerCallbackQuery();
+    await ctx.reply(
+      `Send USDC (Polygon) to your deposit address:\n\n\`${user.safe_address}\`\n\nOnly send USDC on the Polygon network.`,
+      { parse_mode: 'Markdown' }
+    );
+  });
 
   return bot;
 }

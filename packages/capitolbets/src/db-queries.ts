@@ -196,12 +196,15 @@ export class TradeQueries {
     return Number(result.lastInsertRowid);
   }
 
-  getByUser(telegramId: number): Trade[] {
-    const rows = this.db.raw
-      .prepare(
-        'SELECT * FROM trades WHERE user_telegram_id = ? ORDER BY created_at DESC'
-      )
-      .all(telegramId) as TradeRow[];
+  getByUser(telegramId: number, limit?: number): Trade[] {
+    const sql = limit
+      ? 'SELECT * FROM trades WHERE user_telegram_id = ? ORDER BY created_at DESC LIMIT ?'
+      : 'SELECT * FROM trades WHERE user_telegram_id = ? ORDER BY created_at DESC';
+    const rows = (
+      limit
+        ? this.db.raw.prepare(sql).all(telegramId, limit)
+        : this.db.raw.prepare(sql).all(telegramId)
+    ) as TradeRow[];
     return rows.map(mapTrade);
   }
 
