@@ -1,6 +1,7 @@
 import type { BotContext } from '../bot';
 import type { WalletManager } from '../wallet';
 import type { UserQueries } from '../db-queries';
+import { ReferralService } from '../referrals';
 
 export async function startCommand(ctx: BotContext): Promise<void> {
   // Returning user
@@ -49,6 +50,21 @@ export async function startCommand(ctx: BotContext): Promise<void> {
       safe_address: result.safeAddress,
       deposit_address: result.safeAddress,
     });
+
+    // Process referral deep link (e.g., /start ref_12345)
+    const startPayload = (ctx.match as string) ?? '';
+    if (startPayload) {
+      try {
+        const referralService = new ReferralService(userQueries);
+        const referred = referralService.processReferral(telegramId, startPayload);
+        if (referred) {
+          // Silently recorded -- no need to clutter the welcome message
+        }
+      } catch (err) {
+        // Non-fatal: referral tracking failure should not block onboarding
+        console.error(`Referral processing failed for telegram_id=${telegramId}:`, err);
+      }
+    }
 
     await ctx.reply(
       'Your wallet is ready!\n\n' +
