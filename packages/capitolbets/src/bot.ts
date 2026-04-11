@@ -1,6 +1,8 @@
 import { Bot, Context } from 'grammy';
 import type { AppConfig } from './config';
 import type { User } from './types';
+import type { WalletManager } from './wallet';
+import type { UserQueries } from './db-queries';
 import { startCommand } from './commands/start';
 import { helpCommand } from './commands/help';
 import { searchCommand } from './commands/search';
@@ -14,6 +16,8 @@ export interface BotContext extends Context {
   config: AppConfig;
   // db will be typed properly once db.ts lands (Task 1.2)
   db: unknown;
+  walletManager: WalletManager | null;
+  userQueries: UserQueries | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,7 +73,16 @@ function createRateLimiter() {
 // Bot factory
 // ---------------------------------------------------------------------------
 
-export function createBot(config: AppConfig, db: unknown): Bot<BotContext> {
+export interface BotDependencies {
+  walletManager?: WalletManager | null;
+  userQueries?: UserQueries | null;
+}
+
+export function createBot(
+  config: AppConfig,
+  db: unknown,
+  deps: BotDependencies = {}
+): Bot<BotContext> {
   const bot = new Bot<BotContext>(config.telegramBotToken);
   const rateLimiter = createRateLimiter();
 
@@ -82,6 +95,8 @@ export function createBot(config: AppConfig, db: unknown): Bot<BotContext> {
     ctx.config = config;
     ctx.db = db;
     ctx.user = null;
+    ctx.walletManager = deps.walletManager ?? null;
+    ctx.userQueries = deps.userQueries ?? null;
     await next();
   });
 
@@ -107,10 +122,8 @@ export function createBot(config: AppConfig, db: unknown): Bot<BotContext> {
   // -- Middleware: user loader --------------------------------------------
   bot.use(async (ctx, next) => {
     const telegramId = ctx.from?.id;
-    if (telegramId) {
-      // TODO: look up user from DB once db-queries.ts lands (Task 1.2)
-      // ctx.user = db.getUserByTelegramId(telegramId) ?? null;
-      ctx.user = null;
+    if (telegramId && ctx.userQueries) {
+      ctx.user = ctx.userQueries.getByTelegramId(telegramId) ?? null;
     }
     await next();
   });

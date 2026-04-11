@@ -14,6 +14,8 @@ import type {
 interface UserRow {
   telegram_id: number;
   privy_user_id: string;
+  privy_wallet_id: string;
+  signer_address: string;
   safe_address: string;
   deposit_address: string;
   created_at: string;
@@ -104,15 +106,21 @@ export class UserQueries {
   create(params: {
     telegram_id: number;
     privy_user_id: string;
+    privy_wallet_id?: string;
+    signer_address?: string;
     safe_address: string;
     deposit_address: string;
   }): void {
     this.db.raw
       .prepare(
-        `INSERT INTO users (telegram_id, privy_user_id, safe_address, deposit_address)
-         VALUES (@telegram_id, @privy_user_id, @safe_address, @deposit_address)`
+        `INSERT INTO users (telegram_id, privy_user_id, privy_wallet_id, signer_address, safe_address, deposit_address)
+         VALUES (@telegram_id, @privy_user_id, @privy_wallet_id, @signer_address, @safe_address, @deposit_address)`
       )
-      .run(params);
+      .run({
+        ...params,
+        privy_wallet_id: params.privy_wallet_id ?? '',
+        signer_address: params.signer_address ?? '',
+      });
   }
 
   getByTelegramId(telegramId: number): User | undefined {

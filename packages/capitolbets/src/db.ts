@@ -14,6 +14,8 @@ export class Database {
       CREATE TABLE IF NOT EXISTS users (
         telegram_id INTEGER PRIMARY KEY,
         privy_user_id TEXT NOT NULL,
+        privy_wallet_id TEXT NOT NULL DEFAULT '',
+        signer_address TEXT NOT NULL DEFAULT '',
         safe_address TEXT NOT NULL,
         deposit_address TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),

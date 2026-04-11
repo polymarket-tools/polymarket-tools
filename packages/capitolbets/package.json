@@ -13,17 +13,20 @@
   },
   "dependencies": {
     "@polymarket-tools/core": "workspace:*",
-    "grammy": "^1.30.0",
+    "@privy-io/node": "^0.14.0",
+    "@safe-global/api-kit": "^4.1.0",
+    "@safe-global/protocol-kit": "^7.0.0",
     "better-sqlite3": "^11.0.0",
     "express": "^4.18.0",
-    "viem": "^2.0.0",
-    "pino": "^9.0.0"
+    "grammy": "^1.30.0",
+    "pino": "^9.0.0",
+    "viem": "^2.0.0"
   },
   "devDependencies": {
-    "vitest": "^3.0.0",
-    "typescript": "^5.5.0",
     "@types/better-sqlite3": "^7.0.0",
     "@types/express": "^4.17.0",
-    "tsx": "^4.0.0"
+    "tsx": "^4.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^3.0.0"
   }
 }

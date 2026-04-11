@@ -1,6 +1,8 @@
 export interface User {
   telegram_id: number;
   privy_user_id: string;
+  privy_wallet_id: string;
+  signer_address: string;
   safe_address: string;
   deposit_address: string;
   created_at: string;
