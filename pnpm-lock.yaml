@@ -25,6 +25,12 @@ importers:
       '@polymarket-tools/core':
         specifier: workspace:*
         version: link:../core
+      '@polymarket/builder-signing-sdk':
+        specifier: ^1.0.0
+        version: 1.0.0
+      '@polymarket/clob-client':
+        specifier: ^5.8.1
+        version: 5.8.1(typescript@5.9.3)(zod@3.25.67)
       '@privy-io/node':
         specifier: ^0.14.0
         version: 0.14.0(viem@2.47.10(typescript@5.9.3)(zod@3.25.67))
