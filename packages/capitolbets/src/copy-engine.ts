@@ -2,6 +2,7 @@ import type { DataApiClient, WalletTrade } from '@polymarket-tools/core';
 import type { TradingEngine } from './trading';
 import type { CopyConfigQueries, UserQueries } from './db-queries';
 import type { CopyConfig, User } from './types';
+import type { SmartCopyScorer } from './smart-copy';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -21,6 +22,8 @@ export interface CopyEngineDeps {
   notify: CopyNotifyFn;
   /** Get user's USDC balance in human-readable units (e.g. 150.25 means $150.25) */
   getBalance: (safeAddress: string) => Promise<number>;
+  /** Optional SmartCopyScorer for AI-based trade filtering */
+  smartCopyScorer?: SmartCopyScorer | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -36,6 +39,7 @@ export class CopyEngine {
   private userQueries: UserQueries;
   private notify: CopyNotifyFn;
   private getBalance: (safeAddress: string) => Promise<number>;
+  private smartCopyScorer: SmartCopyScorer | null;
 
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private pollIntervalMs: number;
@@ -47,6 +51,7 @@ export class CopyEngine {
     this.userQueries = deps.userQueries;
     this.notify = deps.notify;
     this.getBalance = deps.getBalance;
+    this.smartCopyScorer = deps.smartCopyScorer ?? null;
     this.pollIntervalMs = pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
   }
 
@@ -139,6 +144,47 @@ export class CopyEngine {
       if (!this.shouldCopyTrade(trade, config.direction)) {
         lastProcessedTrade = trade;
         continue;
+      }
+
+      // Smart Copy AI filter
+      if (config.smart_copy_enabled && this.smartCopyScorer) {
+        try {
+          const score = await this.smartCopyScorer.scoreTrade({
+            walletAddress: config.target_wallet,
+            conditionId: trade.market,
+            side: trade.side,
+          });
+
+          // Category filter
+          if (
+            config.smart_copy_categories &&
+            config.smart_copy_categories.length > 0 &&
+            !config.smart_copy_categories.includes(score.category)
+          ) {
+            await this.notify(
+              config.user_telegram_id,
+              `Smart Copy skipped: "${score.category}" category not in your filter.`,
+            );
+            lastProcessedTrade = trade;
+            continue;
+          }
+
+          // Confidence threshold check
+          if (score.confidence < config.smart_copy_min_confidence * 100) {
+            await this.notify(
+              config.user_telegram_id,
+              `Smart Copy skipped: ${score.reason}. Score: ${score.confidence}% (min: ${Math.round(config.smart_copy_min_confidence * 100)}%)`,
+            );
+            lastProcessedTrade = trade;
+            continue;
+          }
+        } catch (err) {
+          console.error(
+            `[CopyEngine] Smart copy scoring failed for wallet ${config.target_wallet}:`,
+            err,
+          );
+          // On scorer failure, proceed with the trade (fail-open)
+        }
       }
 
       // Calculate mirror size
