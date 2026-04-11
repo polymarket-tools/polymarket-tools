@@ -13,6 +13,7 @@ import { withdrawCommand } from './commands/withdraw';
 import { historyCommand } from './commands/history';
 import { depositCommand } from './commands/deposit';
 import { copyCommand, stopCommand, copiesCommand } from './commands/copy';
+import { alertsCommand } from './commands/alerts';
 import { requireUser } from './guards';
 
 // ---------------------------------------------------------------------------
@@ -157,6 +158,7 @@ export function createBot(
   bot.command('copy', copyCommand);
   bot.command('stop', stopCommand);
   bot.command('copies', copiesCommand);
+  bot.command('alerts', alertsCommand);
 
   // -- Callback queries --------------------------------------------------
   bot.callbackQuery('deposit:manual', async (ctx) => {
