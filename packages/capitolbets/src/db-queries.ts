@@ -302,6 +302,46 @@ export class CopyConfigQueries {
       .all() as CopyConfigRow[];
     return rows.map(mapCopyConfig);
   }
+
+  getById(configId: number): CopyConfig | undefined {
+    const row = this.db.raw
+      .prepare('SELECT * FROM copy_configs WHERE id = ?')
+      .get(configId) as CopyConfigRow | undefined;
+    return row ? mapCopyConfig(row) : undefined;
+  }
+
+  activate(configId: number): void {
+    this.db.raw
+      .prepare('UPDATE copy_configs SET active = 1 WHERE id = ?')
+      .run(configId);
+  }
+
+  updateSizing(
+    configId: number,
+    mode: 'percent' | 'fixed' | 'mirror',
+    value: number,
+  ): void {
+    this.db.raw
+      .prepare(
+        'UPDATE copy_configs SET sizing_mode = ?, sizing_value = ? WHERE id = ?',
+      )
+      .run(mode, value, configId);
+  }
+
+  updateDirection(
+    configId: number,
+    direction: 'all' | 'buys_only' | 'sells_only',
+  ): void {
+    this.db.raw
+      .prepare('UPDATE copy_configs SET direction = ? WHERE id = ?')
+      .run(direction, configId);
+  }
+
+  updateMaxPerTrade(configId: number, max: number | null): void {
+    this.db.raw
+      .prepare('UPDATE copy_configs SET max_per_trade = ? WHERE id = ?')
+      .run(max, configId);
+  }
 }
 
 // ---------- AlertSentQueries ----------

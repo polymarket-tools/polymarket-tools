@@ -3,7 +3,7 @@ import type { AppConfig } from './config';
 import type { User } from './types';
 import type { WalletManager } from './wallet';
 import type { DepositMonitor } from './deposit-monitor';
-import type { UserQueries, TradeQueries } from './db-queries';
+import type { UserQueries, TradeQueries, CopyConfigQueries } from './db-queries';
 import { startCommand } from './commands/start';
 import { helpCommand } from './commands/help';
 import { searchCommand } from './commands/search';
@@ -12,6 +12,7 @@ import { portfolioCommand } from './commands/portfolio';
 import { withdrawCommand } from './commands/withdraw';
 import { historyCommand } from './commands/history';
 import { depositCommand } from './commands/deposit';
+import { copyCommand, stopCommand, copiesCommand } from './commands/copy';
 import { requireUser } from './guards';
 
 // ---------------------------------------------------------------------------
@@ -27,6 +28,7 @@ export interface BotContext extends Context {
   userQueries: UserQueries | null;
   depositMonitor: DepositMonitor | null;
   tradeQueries: TradeQueries | null;
+  copyConfigQueries: CopyConfigQueries | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,6 +89,7 @@ export interface BotDependencies {
   userQueries?: UserQueries | null;
   depositMonitor?: DepositMonitor | null;
   tradeQueries?: TradeQueries | null;
+  copyConfigQueries?: CopyConfigQueries | null;
 }
 
 export function createBot(
@@ -110,6 +113,7 @@ export function createBot(
     ctx.userQueries = deps.userQueries ?? null;
     ctx.depositMonitor = deps.depositMonitor ?? null;
     ctx.tradeQueries = deps.tradeQueries ?? null;
+    ctx.copyConfigQueries = deps.copyConfigQueries ?? null;
     await next();
   });
 
@@ -150,6 +154,9 @@ export function createBot(
   bot.command('withdraw', withdrawCommand);
   bot.command('history', historyCommand);
   bot.command('deposit', depositCommand);
+  bot.command('copy', copyCommand);
+  bot.command('stop', stopCommand);
+  bot.command('copies', copiesCommand);
 
   // -- Callback queries --------------------------------------------------
   bot.callbackQuery('deposit:manual', async (ctx) => {
