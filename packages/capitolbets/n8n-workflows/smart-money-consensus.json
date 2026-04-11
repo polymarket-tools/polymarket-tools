@@ -92,13 +92,23 @@
     },
     {
       "parameters": {
-        "jsCode": "// Format consensus alerts with market details\nconst WEBHOOK_URL = $env.WEBHOOK_URL || 'http://localhost:3000';\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const market = item.json;\n  // Carry consensus data forward\n  const consensus = item.json._consensus || item.json;\n\n  const outcomePrices = JSON.parse(market.outcomePrices || '[0, 0]');\n  const clobTokenIds = JSON.parse(market.clobTokenIds || '[\"\", \"\"]');\n  const currentPrice = parseFloat(outcomePrices[0]) || 0;\n  const tokenId = clobTokenIds[0] || consensus.tokenId || '';\n  const count = consensus.count || 0;\n  const outcome = consensus.outcome || 'YES';\n\n  results.push({\n    json: {\n      webhookUrl: WEBHOOK_URL + '/api/alert',\n      payload: {\n        category: 'smart_money',\n        title: `Smart money consensus: ${count} of top 10 traders hold ${outcome} on \"${market.question}\"`,\n        body: `${count} of the top 10 Polymarket traders by all-time P&L hold ${outcome} positions on \"${market.question}\". Current price: $${currentPrice.toFixed(2)}. Combined position size: $${Math.round(consensus.totalSize || 0).toLocaleString()}.`,\n        market: {\n          conditionId: market.conditionId || consensus.conditionId,\n          question: market.question || 'Unknown market',\n          tokenId: tokenId,\n          currentPrice: currentPrice\n        },\n        urgent: false,\n        metadata: {\n          consensusCount: count,\n          outcome: outcome,\n          wallets: consensus.wallets || [],\n          totalSize: consensus.totalSize || 0\n        }\n      }\n    }\n  });\n}\n\nif (results.length === 0) {\n  return [];\n}\n\nreturn results;"
+        "jsCode": "// Merge market API response with original consensus data from earlier node.\n// The HTTP Request node overwrites item.json with the API response,\n// so we recover consensus data by referencing the prior Code node's output.\nconst consensusItems = $('Find Consensus (3+ Wallets)').all();\nconst results = [];\n\nfor (let i = 0; i < $input.all().length; i++) {\n  const market = $input.all()[i].json;\n  const consensus = consensusItems[i] ? consensusItems[i].json : {};\n  results.push({\n    json: {\n      ...market,\n      _consensus: consensus\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "merge-consensus-data",
+      "name": "Merge Consensus Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1630, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format consensus alerts with market details\nconst WEBHOOK_URL = $env.WEBHOOK_URL || 'http://localhost:3000';\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const market = item.json;\n  const consensus = item.json._consensus || {};\n\n  const outcomePrices = JSON.parse(market.outcomePrices || '[0, 0]');\n  const clobTokenIds = JSON.parse(market.clobTokenIds || '[\"\", \"\"]');\n  const currentPrice = parseFloat(outcomePrices[0]) || 0;\n  const tokenId = clobTokenIds[0] || consensus.tokenId || '';\n  const count = consensus.count || 0;\n  const outcome = consensus.outcome || 'YES';\n\n  results.push({\n    json: {\n      webhookUrl: WEBHOOK_URL + '/api/alert',\n      payload: {\n        category: 'smart_money',\n        title: `Smart money consensus: ${count} of top 10 traders hold ${outcome} on \"${market.question}\"`,\n        body: `${count} of the top 10 Polymarket traders by all-time P&L hold ${outcome} positions on \"${market.question}\". Current price: $${currentPrice.toFixed(2)}. Combined position size: $${Math.round(consensus.totalSize || 0).toLocaleString()}.`,\n        market: {\n          conditionId: market.conditionId || consensus.conditionId,\n          question: market.question || 'Unknown market',\n          tokenId: tokenId,\n          currentPrice: currentPrice\n        },\n        urgent: false,\n        metadata: {\n          consensusCount: count,\n          outcome: outcome,\n          wallets: consensus.wallets || [],\n          totalSize: consensus.totalSize || 0\n        }\n      }\n    }\n  });\n}\n\nif (results.length === 0) {\n  return [];\n}\n\nreturn results;"
       },
       "id": "format-alert",
       "name": "Format Alert Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1740, 300]
+      "position": [1840, 300]
     },
     {
       "parameters": {
@@ -115,7 +125,7 @@
       "name": "POST Alert to Bot",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1960, 300]
+      "position": [2060, 300]
     },
     {
       "parameters": {
@@ -160,6 +170,11 @@
       ]
     },
     "Get Market Details": {
+      "main": [
+        [{ "node": "Merge Consensus Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Merge Consensus Data": {
       "main": [
         [{ "node": "Format Alert Payload", "type": "main", "index": 0 }]
       ]

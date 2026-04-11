@@ -63,13 +63,23 @@
     },
     {
       "parameters": {
-        "jsCode": "// Calculate price movement and filter for >10% moves\nconst WEBHOOK_URL = $env.WEBHOOK_URL || 'http://localhost:3000';\nconst THRESHOLD = 0.10; // 10%\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const history = item.json.history || item.json;\n  const prices = Array.isArray(history) ? history : [];\n\n  if (prices.length < 2) continue;\n\n  // Get the oldest and newest price points\n  const oldPrice = parseFloat(prices[0].p || prices[0].price || '0');\n  const newPrice = parseFloat(prices[prices.length - 1].p || prices[prices.length - 1].price || '0');\n\n  if (oldPrice === 0) continue;\n\n  const change = (newPrice - oldPrice) / oldPrice;\n  const absChange = Math.abs(change);\n\n  if (absChange >= THRESHOLD) {\n    const direction = change > 0 ? 'UP' : 'DOWN';\n    const percentStr = (absChange * 100).toFixed(1);\n    // Carry forward market data\n    const market = item.json._market || {\n      conditionId: item.json.conditionId,\n      question: item.json.question,\n      tokenId: item.json.tokenId,\n      currentPrice: newPrice\n    };\n\n    results.push({\n      json: {\n        webhookUrl: WEBHOOK_URL + '/api/alert',\n        payload: {\n          category: 'movers',\n          title: `\"${market.question}\" moved ${direction} ${percentStr}% in the last hour`,\n          body: `\"${market.question}\" moved ${direction} ${percentStr}% in the last hour ($${oldPrice.toFixed(2)} -> $${newPrice.toFixed(2)}).`,\n          market: {\n            conditionId: market.conditionId || '',\n            question: market.question || 'Unknown market',\n            tokenId: market.tokenId || '',\n            currentPrice: newPrice\n          },\n          urgent: absChange >= 0.20,\n          metadata: {\n            oldPrice: oldPrice,\n            newPrice: newPrice,\n            percentChange: parseFloat(percentStr),\n            direction: direction\n          }\n        }\n      }\n    });\n  }\n}\n\nif (results.length === 0) {\n  return [];\n}\n\nreturn results;"
+        "jsCode": "// Merge price history API response with original market data from Extract Token IDs.\n// The HTTP Request node overwrites item.json with the price history response,\n// so we recover market fields by referencing the prior Code node's output.\nconst marketItems = $('Extract Token IDs').all();\nconst results = [];\n\nfor (let i = 0; i < $input.all().length; i++) {\n  const priceHistory = $input.all()[i].json;\n  const market = marketItems[i] ? marketItems[i].json : {};\n  results.push({\n    json: {\n      ...priceHistory,\n      _market: market\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "merge-market-data",
+      "name": "Merge Market Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [970, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate price movement and filter for >10% moves\nconst WEBHOOK_URL = $env.WEBHOOK_URL || 'http://localhost:3000';\nconst THRESHOLD = 0.10; // 10%\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const market = item.json._market || {};\n  const history = item.json.history || item.json;\n  const prices = Array.isArray(history) ? history : [];\n\n  if (prices.length < 2) continue;\n\n  // Get the oldest and newest price points\n  const oldPrice = parseFloat(prices[0].p || prices[0].price || '0');\n  const newPrice = parseFloat(prices[prices.length - 1].p || prices[prices.length - 1].price || '0');\n\n  if (oldPrice === 0) continue;\n\n  const change = (newPrice - oldPrice) / oldPrice;\n  const absChange = Math.abs(change);\n\n  if (absChange >= THRESHOLD) {\n    const direction = change > 0 ? 'UP' : 'DOWN';\n    const percentStr = (absChange * 100).toFixed(1);\n\n    results.push({\n      json: {\n        webhookUrl: WEBHOOK_URL + '/api/alert',\n        payload: {\n          category: 'movers',\n          title: `\"${market.question || 'Unknown market'}\" moved ${direction} ${percentStr}% in the last hour`,\n          body: `\"${market.question || 'Unknown market'}\" moved ${direction} ${percentStr}% in the last hour ($${oldPrice.toFixed(2)} -> $${newPrice.toFixed(2)}).`,\n          market: {\n            conditionId: market.conditionId || '',\n            question: market.question || 'Unknown market',\n            tokenId: market.tokenId || '',\n            currentPrice: newPrice\n          },\n          urgent: absChange >= 0.20,\n          metadata: {\n            oldPrice: oldPrice,\n            newPrice: newPrice,\n            percentChange: parseFloat(percentStr),\n            direction: direction\n          }\n        }\n      }\n    });\n  }\n}\n\nif (results.length === 0) {\n  return [];\n}\n\nreturn results;"
       },
       "id": "calc-movement",
       "name": "Calculate Movement & Filter >10%",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1080, 300]
+      "position": [1180, 300]
     },
     {
       "parameters": {
@@ -86,7 +96,7 @@
       "name": "POST Alert to Bot",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1300, 300]
+      "position": [1400, 300]
     },
     {
       "parameters": {
@@ -116,6 +126,11 @@
       ]
     },
     "Get Price History": {
+      "main": [
+        [{ "node": "Merge Market Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Merge Market Data": {
       "main": [
         [{ "node": "Calculate Movement & Filter >10%", "type": "main", "index": 0 }]
       ]

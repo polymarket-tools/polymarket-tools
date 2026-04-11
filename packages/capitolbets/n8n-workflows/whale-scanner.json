@@ -80,13 +80,23 @@
     },
     {
       "parameters": {
-        "jsCode": "// Format alert payload for each qualifying whale trade\nconst WEBHOOK_URL = $env.WEBHOOK_URL || 'http://localhost:3000';\n\nconst results = [];\nfor (const item of $input.all()) {\n  const market = item.json;\n  // Carry forward trade data from earlier nodes\n  const trade = item.json._trade || item.json;\n\n  const outcomePrices = JSON.parse(market.outcomePrices || '[0, 0]');\n  const currentPrice = parseFloat(outcomePrices[0]) || 0;\n  const clobTokenIds = JSON.parse(market.clobTokenIds || '[\"\", \"\"]');\n  const tokenId = clobTokenIds[0] || trade.tokenId || '';\n  const side = trade.side === 'BUY' ? 'bought' : 'sold';\n  const sizeStr = (trade.size || 0).toLocaleString();\n\n  results.push({\n    json: {\n      webhookUrl: WEBHOOK_URL + '/api/alert',\n      payload: {\n        category: 'whales',\n        title: `Top trader ${side} $${sizeStr} on \"${market.question}\"`,\n        body: `Whale ${side} at $${(trade.price || currentPrice).toFixed(2)}. Market: \"${market.question}\". Total market volume: $${parseInt(market.volume || '0').toLocaleString()}.`,\n        market: {\n          conditionId: market.conditionId || trade.conditionId,\n          question: market.question || 'Unknown market',\n          tokenId: tokenId,\n          currentPrice: currentPrice\n        },\n        urgent: false,\n        metadata: {\n          traderWallet: trade.proxyWallet,\n          tradeSize: trade.size\n        }\n      }\n    }\n  });\n}\n\nreturn results;"
+        "jsCode": "// Merge market API response with original trade data from earlier node.\n// The HTTP Request node overwrites item.json with the API response,\n// so we recover trade data by referencing the prior Code node's output.\nconst tradeItems = $('Filter Recent & Large Trades').all();\nconst results = [];\n\nfor (let i = 0; i < $input.all().length; i++) {\n  const market = $input.all()[i].json;\n  const trade = tradeItems[i] ? tradeItems[i].json : {};\n  results.push({\n    json: {\n      ...market,\n      _trade: trade\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "merge-trade-data",
+      "name": "Merge Trade Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1410, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format alert payload for each qualifying whale trade\nconst WEBHOOK_URL = $env.WEBHOOK_URL || 'http://localhost:3000';\n\nconst results = [];\nfor (const item of $input.all()) {\n  const market = item.json;\n  const trade = item.json._trade || {};\n\n  const outcomePrices = JSON.parse(market.outcomePrices || '[0, 0]');\n  const currentPrice = parseFloat(outcomePrices[0]) || 0;\n  const clobTokenIds = JSON.parse(market.clobTokenIds || '[\"\", \"\"]');\n  const tokenId = clobTokenIds[0] || trade.tokenId || '';\n  const side = trade.side === 'BUY' ? 'bought' : 'sold';\n  const sizeStr = (trade.size || 0).toLocaleString();\n\n  results.push({\n    json: {\n      webhookUrl: WEBHOOK_URL + '/api/alert',\n      payload: {\n        category: 'whales',\n        title: `Top trader ${side} $${sizeStr} on \"${market.question}\"`,\n        body: `Whale ${side} at $${(trade.price || currentPrice).toFixed(2)}. Market: \"${market.question}\". Total market volume: $${parseInt(market.volume || '0').toLocaleString()}.`,\n        market: {\n          conditionId: market.conditionId || trade.conditionId,\n          question: market.question || 'Unknown market',\n          tokenId: tokenId,\n          currentPrice: currentPrice\n        },\n        urgent: false,\n        metadata: {\n          traderWallet: trade.proxyWallet,\n          tradeSize: trade.size\n        }\n      }\n    }\n  });\n}\n\nreturn results;"
       },
       "id": "format-alert",
       "name": "Format Alert Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1520, 300]
+      "position": [1620, 300]
     },
     {
       "parameters": {
@@ -103,7 +113,7 @@
       "name": "POST Alert to Bot",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1740, 300]
+      "position": [1840, 300]
     },
     {
       "parameters": {
@@ -143,6 +153,11 @@
       ]
     },
     "Get Market Details": {
+      "main": [
+        [{ "node": "Merge Trade Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Merge Trade Data": {
       "main": [
         [{ "node": "Format Alert Payload", "type": "main", "index": 0 }]
       ]
