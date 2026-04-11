@@ -1,0 +1,182 @@
+{
+  "name": "Smart Money Consensus",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily 9am ET",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://data-api.polymarket.com/v1/leaderboard",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "timePeriod", "value": "all" },
+            { "name": "limit", "value": "10" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-leaderboard",
+      "name": "Get Leaderboard Top 10",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split leaderboard into individual wallet entries\nconst leaderboard = $input.first().json;\nconst entries = Array.isArray(leaderboard) ? leaderboard : [leaderboard];\nreturn entries.map(entry => ({ json: { proxyWallet: entry.proxyWallet, rank: entry.rank, userName: entry.userName || entry.proxyWallet } }));"
+      },
+      "id": "split-wallets",
+      "name": "Split Into Wallets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://data-api.polymarket.com/positions?user={{ $json.proxyWallet }}&sizeThreshold=1000",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "get-positions",
+      "name": "Get Wallet Positions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect all positions and tag with wallet info\nconst allPositions = [];\n\nfor (const item of $input.all()) {\n  const positions = Array.isArray(item.json) ? item.json : [item.json];\n  for (const pos of positions) {\n    if (pos.conditionId && pos.outcome) {\n      allPositions.push({\n        json: {\n          conditionId: pos.conditionId,\n          outcome: pos.outcome,\n          proxyWallet: pos.user || pos.proxyWallet,\n          size: parseFloat(pos.size || '0'),\n          tokenId: pos.tokenId || pos.assetId || ''\n        }\n      });\n    }\n  }\n}\n\nreturn allPositions.length > 0 ? allPositions : [];"
+      },
+      "id": "collect-positions",
+      "name": "Collect All Positions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Group positions by market + side and find consensus (3+ wallets)\nconst groups = {};\n\nfor (const item of $input.all()) {\n  const pos = item.json;\n  const key = `${pos.conditionId}_${pos.outcome}`;\n  if (!groups[key]) {\n    groups[key] = {\n      conditionId: pos.conditionId,\n      outcome: pos.outcome,\n      tokenId: pos.tokenId,\n      wallets: new Set(),\n      totalSize: 0\n    };\n  }\n  groups[key].wallets.add(pos.proxyWallet);\n  groups[key].totalSize += pos.size;\n}\n\n// Filter for 3+ wallets on same side\nconst consensus = Object.values(groups)\n  .filter(g => g.wallets.size >= 3)\n  .map(g => ({\n    json: {\n      conditionId: g.conditionId,\n      outcome: g.outcome,\n      tokenId: g.tokenId,\n      count: g.wallets.size,\n      wallets: [...g.wallets],\n      totalSize: g.totalSize\n    }\n  }));\n\nif (consensus.length === 0) {\n  return [];\n}\n\nreturn consensus;"
+      },
+      "id": "find-consensus",
+      "name": "Find Consensus (3+ Wallets)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://gamma-api.polymarket.com/markets/{{ $json.conditionId }}",
+        "options": {}
+      },
+      "id": "get-market-details",
+      "name": "Get Market Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1520, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format consensus alerts with market details\nconst WEBHOOK_URL = $env.WEBHOOK_URL || 'http://localhost:3000';\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const market = item.json;\n  // Carry consensus data forward\n  const consensus = item.json._consensus || item.json;\n\n  const outcomePrices = JSON.parse(market.outcomePrices || '[0, 0]');\n  const clobTokenIds = JSON.parse(market.clobTokenIds || '[\"\", \"\"]');\n  const currentPrice = parseFloat(outcomePrices[0]) || 0;\n  const tokenId = clobTokenIds[0] || consensus.tokenId || '';\n  const count = consensus.count || 0;\n  const outcome = consensus.outcome || 'YES';\n\n  results.push({\n    json: {\n      webhookUrl: WEBHOOK_URL + '/api/alert',\n      payload: {\n        category: 'smart_money',\n        title: `Smart money consensus: ${count} of top 10 traders hold ${outcome} on \"${market.question}\"`,\n        body: `${count} of the top 10 Polymarket traders by all-time P&L hold ${outcome} positions on \"${market.question}\". Current price: $${currentPrice.toFixed(2)}. Combined position size: $${Math.round(consensus.totalSize || 0).toLocaleString()}.`,\n        market: {\n          conditionId: market.conditionId || consensus.conditionId,\n          question: market.question || 'Unknown market',\n          tokenId: tokenId,\n          currentPrice: currentPrice\n        },\n        urgent: false,\n        metadata: {\n          consensusCount: count,\n          outcome: outcome,\n          wallets: consensus.wallets || [],\n          totalSize: consensus.totalSize || 0\n        }\n      }\n    }\n  });\n}\n\nif (results.length === 0) {\n  return [];\n}\n\nreturn results;"
+      },
+      "id": "format-alert",
+      "name": "Format Alert Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1740, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.webhookUrl }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "post-alert",
+      "name": "POST Alert to Bot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1960, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Smart Money Consensus\n\nRuns daily at 9:00 AM ET. Fetches top 10 leaderboard wallets, gets all their positions, and identifies markets where 3+ top traders hold the same side.\n\nThis is the 'smart money consensus' signal -- when multiple proven winners agree on a direction.\n\n**Required env vars:**\n- WEBHOOK_URL: The bot's webhook base URL\n\n**Alert category:** smart_money\n**Threshold:** 3+ top 10 traders on same side, position size > $1000 each"
+      },
+      "id": "sticky-note",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [160, 100]
+    }
+  ],
+  "connections": {
+    "Daily 9am ET": {
+      "main": [
+        [{ "node": "Get Leaderboard Top 10", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Leaderboard Top 10": {
+      "main": [
+        [{ "node": "Split Into Wallets", "type": "main", "index": 0 }]
+      ]
+    },
+    "Split Into Wallets": {
+      "main": [
+        [{ "node": "Get Wallet Positions", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Wallet Positions": {
+      "main": [
+        [{ "node": "Collect All Positions", "type": "main", "index": 0 }]
+      ]
+    },
+    "Collect All Positions": {
+      "main": [
+        [{ "node": "Find Consensus (3+ Wallets)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Find Consensus (3+ Wallets)": {
+      "main": [
+        [{ "node": "Get Market Details", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Market Details": {
+      "main": [
+        [{ "node": "Format Alert Payload", "type": "main", "index": 0 }]
+      ]
+    },
+    "Format Alert Payload": {
+      "main": [
+        [{ "node": "POST Alert to Bot", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "tags": [
+    { "name": "capitolbets" },
+    { "name": "signals" },
+    { "name": "smart_money" }
+  ]
+}

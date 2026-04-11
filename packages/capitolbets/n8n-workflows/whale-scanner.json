@@ -1,0 +1,165 @@
+{
+  "name": "Whale Scanner",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://data-api.polymarket.com/v1/leaderboard",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "timePeriod", "value": "all" },
+            { "name": "limit", "value": "10" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-leaderboard",
+      "name": "Get Leaderboard Top 10",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split leaderboard entries into individual items for processing\nconst leaderboard = $input.first().json;\nconst entries = Array.isArray(leaderboard) ? leaderboard : [leaderboard];\nreturn entries.map(entry => ({ json: entry }));"
+      },
+      "id": "split-entries",
+      "name": "Split Leaderboard Entries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://data-api.polymarket.com/trades?user={{ $json.proxyWallet }}&limit=5",
+        "options": {}
+      },
+      "id": "get-wallet-trades",
+      "name": "Get Wallet Trades",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter for recent trades (last 5 minutes) with size > $10K\nconst FIVE_MINUTES_MS = 5 * 60 * 1000;\nconst cutoff = Date.now() - FIVE_MINUTES_MS;\nconst MIN_SIZE = 10000;\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const trades = Array.isArray(item.json) ? item.json : [item.json];\n  for (const trade of trades) {\n    const tradeTime = new Date(trade.timestamp || trade.createdAt || 0).getTime();\n    const size = parseFloat(trade.size || '0');\n    if (tradeTime > cutoff && size > MIN_SIZE) {\n      results.push({\n        json: {\n          proxyWallet: trade.user || trade.proxyWallet,\n          conditionId: trade.conditionId || trade.market,\n          tokenId: trade.tokenId || trade.assetId,\n          side: trade.side,\n          size: size,\n          price: parseFloat(trade.price || '0'),\n          timestamp: trade.timestamp || trade.createdAt\n        }\n      });\n    }\n  }\n}\n\nif (results.length === 0) {\n  return [];\n}\n\nreturn results;"
+      },
+      "id": "filter-recent-large",
+      "name": "Filter Recent & Large Trades",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://gamma-api.polymarket.com/markets/{{ $json.conditionId }}",
+        "options": {}
+      },
+      "id": "get-market-details",
+      "name": "Get Market Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format alert payload for each qualifying whale trade\nconst WEBHOOK_URL = $env.WEBHOOK_URL || 'http://localhost:3000';\n\nconst results = [];\nfor (const item of $input.all()) {\n  const market = item.json;\n  // Carry forward trade data from earlier nodes\n  const trade = item.json._trade || item.json;\n\n  const outcomePrices = JSON.parse(market.outcomePrices || '[0, 0]');\n  const currentPrice = parseFloat(outcomePrices[0]) || 0;\n  const clobTokenIds = JSON.parse(market.clobTokenIds || '[\"\", \"\"]');\n  const tokenId = clobTokenIds[0] || trade.tokenId || '';\n  const side = trade.side === 'BUY' ? 'bought' : 'sold';\n  const sizeStr = (trade.size || 0).toLocaleString();\n\n  results.push({\n    json: {\n      webhookUrl: WEBHOOK_URL + '/api/alert',\n      payload: {\n        category: 'whales',\n        title: `Top trader ${side} $${sizeStr} on \"${market.question}\"`,\n        body: `Whale ${side} at $${(trade.price || currentPrice).toFixed(2)}. Market: \"${market.question}\". Total market volume: $${parseInt(market.volume || '0').toLocaleString()}.`,\n        market: {\n          conditionId: market.conditionId || trade.conditionId,\n          question: market.question || 'Unknown market',\n          tokenId: tokenId,\n          currentPrice: currentPrice\n        },\n        urgent: false,\n        metadata: {\n          traderWallet: trade.proxyWallet,\n          tradeSize: trade.size\n        }\n      }\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "format-alert",
+      "name": "Format Alert Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1520, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.webhookUrl }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "post-alert",
+      "name": "POST Alert to Bot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1740, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Whale Scanner\n\nRuns every 5 minutes. Fetches the Polymarket leaderboard top 10, checks each wallet's recent trades, and alerts on any trade above $10K.\n\n**Required env vars:**\n- WEBHOOK_URL: The bot's webhook base URL (e.g. https://capitolbets-bot.onrender.com)\n\n**Alert category:** whales\n**Threshold:** $10,000 trade size, last 5 minutes"
+      },
+      "id": "sticky-note",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [160, 100]
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [{ "node": "Get Leaderboard Top 10", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Leaderboard Top 10": {
+      "main": [
+        [{ "node": "Split Leaderboard Entries", "type": "main", "index": 0 }]
+      ]
+    },
+    "Split Leaderboard Entries": {
+      "main": [
+        [{ "node": "Get Wallet Trades", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Wallet Trades": {
+      "main": [
+        [{ "node": "Filter Recent & Large Trades", "type": "main", "index": 0 }]
+      ]
+    },
+    "Filter Recent & Large Trades": {
+      "main": [
+        [{ "node": "Get Market Details", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Market Details": {
+      "main": [
+        [{ "node": "Format Alert Payload", "type": "main", "index": 0 }]
+      ]
+    },
+    "Format Alert Payload": {
+      "main": [
+        [{ "node": "POST Alert to Bot", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "tags": [
+    { "name": "capitolbets" },
+    { "name": "signals" },
+    { "name": "whales" }
+  ]
+}

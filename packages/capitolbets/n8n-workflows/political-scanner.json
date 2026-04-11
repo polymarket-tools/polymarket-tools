@@ -1,0 +1,336 @@
+{
+  "name": "Political Scanner",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 10 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 500]
+    },
+    {
+      "parameters": {
+        "url": "https://www.reddit.com/r/politics/new.json?limit=25",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "id": "reddit-politics",
+      "name": "Reddit r/politics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://www.reddit.com/r/news/new.json?limit=25",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "id": "reddit-news",
+      "name": "Reddit r/news",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://www.reddit.com/r/worldnews/new.json?limit=25",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "id": "reddit-worldnews",
+      "name": "Reddit r/worldnews",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 600]
+    },
+    {
+      "parameters": {
+        "url": "https://rsshub.app/apnews/topics/politics",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "id": "rss-ap",
+      "name": "RSS AP Politics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 800]
+    },
+    {
+      "parameters": {
+        "url": "https://rsshub.app/reuters/world",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "id": "rss-reuters",
+      "name": "RSS Reuters",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 1000]
+    },
+    {
+      "parameters": {
+        "url": "https://www.whitehouse.gov/feed/",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "id": "rss-whitehouse",
+      "name": "RSS WhiteHouse.gov",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 1200]
+    },
+    {
+      "parameters": {
+        "url": "https://www.congress.gov/rss/bill-activity.xml",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "id": "rss-congress",
+      "name": "RSS Congress.gov",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 1400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize all sources into a unified format\nconst TEN_MINUTES_MS = 10 * 60 * 1000;\nconst cutoff = Date.now() - TEN_MINUTES_MS;\nconst results = [];\n\nfor (const item of $input.all()) {\n  const data = item.json;\n\n  // Reddit format\n  if (data.data && data.data.children) {\n    for (const child of data.data.children) {\n      const post = child.data;\n      const created = (post.created_utc || 0) * 1000;\n      if (created > cutoff) {\n        results.push({\n          json: {\n            title: post.title || '',\n            body: post.selftext || '',\n            url: post.url || '',\n            source: `reddit/r/${post.subreddit}`,\n            publishedAt: new Date(created).toISOString()\n          }\n        });\n      }\n    }\n  }\n\n  // RSS/XML format - items or entry arrays\n  if (data.rss && data.rss.channel) {\n    const items = data.rss.channel.item || [];\n    const itemList = Array.isArray(items) ? items : [items];\n    for (const entry of itemList) {\n      const pubDate = new Date(entry.pubDate || entry.published || 0).getTime();\n      if (pubDate > cutoff) {\n        results.push({\n          json: {\n            title: entry.title || '',\n            body: entry.description || entry.summary || '',\n            url: entry.link || '',\n            source: 'rss',\n            publishedAt: new Date(pubDate).toISOString()\n          }\n        });\n      }\n    }\n  }\n\n  // Atom format\n  if (data.feed && data.feed.entry) {\n    const entries = Array.isArray(data.feed.entry) ? data.feed.entry : [data.feed.entry];\n    for (const entry of entries) {\n      const pubDate = new Date(entry.updated || entry.published || 0).getTime();\n      if (pubDate > cutoff) {\n        results.push({\n          json: {\n            title: entry.title || '',\n            body: entry.summary || entry.content || '',\n            url: (entry.link && entry.link['@_href']) || '',\n            source: 'atom',\n            publishedAt: new Date(pubDate).toISOString()\n          }\n        });\n      }\n    }\n  }\n\n  // Direct item format (some n8n RSS parsing)\n  if (data.title && (data.pubDate || data.isoDate || data.publishedAt)) {\n    const pubDate = new Date(data.pubDate || data.isoDate || data.publishedAt || 0).getTime();\n    if (pubDate > cutoff) {\n      results.push({\n        json: {\n          title: data.title || '',\n          body: data.contentSnippet || data.content || data.description || '',\n          url: data.link || '',\n          source: data.source || 'feed',\n          publishedAt: new Date(pubDate).toISOString()\n        }\n      });\n    }\n  }\n}\n\nif (results.length === 0) {\n  return [];\n}\n\nreturn results;"
+      },
+      "id": "normalize-merge",
+      "name": "Normalize & Merge Sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 50-person political watchlist\nconst watchlist = [\n  \"President\", \"Vice President\", \"Chief of Staff\", \"Treasury Secretary\",\n  \"Attorney General\", \"SEC Chair\", \"CFTC Chair\", \"Fed Chair\",\n  \"Schumer\", \"McConnell\", \"Thune\", \"Durbin\",\n  \"Finance Committee\", \"Armed Services Committee\", \"Intelligence Committee\",\n  \"Judiciary Committee\", \"Banking Committee\",\n  \"Speaker\", \"Jeffries\", \"Johnson\", \"Scalise\",\n  \"Governor Newsom\", \"Governor Abbott\", \"Governor DeSantis\",\n  \"Trump\", \"Biden\", \"Harris\", \"Pelosi\", \"Warren\", \"Sanders\",\n  \"Gensler\", \"Powell\", \"Yellen\", \"Wray\"\n];\n\n// Filter items that mention any watchlist entry\nconst matches = [];\nfor (const item of $input.all()) {\n  const text = ((item.json.title || '') + ' ' + (item.json.body || '')).toLowerCase();\n  const matched = watchlist.filter(name => text.includes(name.toLowerCase()));\n  if (matched.length > 0) {\n    matches.push({\n      json: {\n        ...item.json,\n        watchlistMatches: matched\n      }\n    });\n  }\n}\n\nif (matches.length === 0) {\n  return [];\n}\n\nreturn matches;"
+      },
+      "id": "watchlist-match",
+      "name": "Watchlist Match",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 500]
+    },
+    {
+      "parameters": {
+        "url": "https://gamma-api.polymarket.com/markets",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "active", "value": "true" },
+            { "name": "_limit", "value": "50" },
+            { "name": "_order", "value": "volume" },
+            { "name": "ascending", "value": "false" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-active-markets",
+      "name": "Get Active Markets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pre-filter markets by keywords extracted from the political events\n// This reduces the context sent to OpenAI from 50 markets to 3-5\nconst events = $('Watchlist Match').all();\nconst marketsRaw = $input.first().json;\nconst markets = Array.isArray(marketsRaw) ? marketsRaw : [marketsRaw];\n\n// Extract keywords from all matched events\nconst keywords = new Set();\nfor (const event of events) {\n  const text = ((event.json.title || '') + ' ' + (event.json.body || '')).toLowerCase();\n  // Add watchlist matches as keywords\n  for (const match of (event.json.watchlistMatches || [])) {\n    keywords.add(match.toLowerCase());\n  }\n  // Extract capitalized proper nouns (likely people/places/things)\n  const words = (event.json.title || '').split(/\\s+/);\n  for (const word of words) {\n    if (word.length > 3 && word[0] === word[0].toUpperCase() && word[0] !== word[0].toLowerCase()) {\n      keywords.add(word.toLowerCase());\n    }\n  }\n}\n\n// Filter markets whose question matches any keyword\nconst relevantMarkets = markets.filter(m => {\n  const q = (m.question || '').toLowerCase();\n  return [...keywords].some(kw => q.includes(kw));\n});\n\n// Fall back to top markets if no keyword matches\nconst finalMarkets = relevantMarkets.length > 0 ? relevantMarkets.slice(0, 10) : markets.slice(0, 10);\n\n// Build combined payload for OpenAI\nconst eventSummaries = events.map(e => ({\n  title: e.json.title,\n  source: e.json.source,\n  matches: e.json.watchlistMatches\n}));\n\nreturn [{\n  json: {\n    events: eventSummaries,\n    markets: finalMarkets.map(m => {\n      const outcomePrices = JSON.parse(m.outcomePrices || '[0, 0]');\n      const clobTokenIds = JSON.parse(m.clobTokenIds || '[\"\", \"\"]');\n      return {\n        conditionId: m.conditionId,\n        question: m.question,\n        currentPrice: parseFloat(outcomePrices[0]) || 0,\n        tokenId: clobTokenIds[0] || '',\n        volume: m.volume\n      };\n    })\n  }\n}];"
+      },
+      "id": "prefilter-markets",
+      "name": "Pre-filter Markets by Keywords",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 500]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: 'You are a political prediction market analyst. Given political events and a list of open Polymarket markets, identify the SINGLE most affected market for each event.\\n\\nFor each event that matches a market, reply in EXACTLY this JSON format:\\n{\"signal\": \"{event_summary}. \\\"{market_question}\\\" at ${current_price}. {one_sentence_thesis_with_price_target}.\", \"confidence\": 85, \"direction\": \"YES\", \"marketConditionId\": \"0x...\", \"tokenId\": \"...\", \"currentPrice\": 0.31}\\n\\nBe urgent and specific. Include a price target.\\n\\nIf no market is clearly affected, reply with: {\"signal\": \"NO_MATCH\"}\\n\\nReply as a JSON array of results, one per event.' }, { role: 'user', content: 'EVENTS:\\n' + JSON.stringify($json.events) + '\\n\\nMARKETS:\\n' + JSON.stringify($json.markets) }], temperature: 0.3, max_tokens: 1000 }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "openai-match",
+      "name": "OpenAI Match Event to Market",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse OpenAI response and filter out NO_MATCH results\nconst WEBHOOK_URL = $env.WEBHOOK_URL || 'http://localhost:3000';\n\nconst response = $input.first().json;\nlet content = '';\ntry {\n  content = response.choices[0].message.content;\n} catch (e) {\n  return [];\n}\n\n// Parse the JSON response\nlet signals = [];\ntry {\n  // Try parsing as JSON array\n  const parsed = JSON.parse(content);\n  signals = Array.isArray(parsed) ? parsed : [parsed];\n} catch (e) {\n  // Try extracting JSON objects from text\n  const jsonMatches = content.match(/\\{[^}]+\\}/g);\n  if (jsonMatches) {\n    signals = jsonMatches.map(m => {\n      try { return JSON.parse(m); } catch { return null; }\n    }).filter(Boolean);\n  }\n}\n\n// Filter out NO_MATCH and build alert payloads\nconst results = [];\nfor (const sig of signals) {\n  if (!sig.signal || sig.signal === 'NO_MATCH') continue;\n  if (!sig.marketConditionId) continue;\n\n  const isUrgent = (sig.confidence || 0) > 90;\n\n  results.push({\n    json: {\n      webhookUrl: WEBHOOK_URL + '/api/alert',\n      payload: {\n        category: 'politics',\n        title: sig.signal.split('.')[0] || sig.signal,\n        body: sig.signal,\n        market: {\n          conditionId: sig.marketConditionId,\n          question: sig.signal.match(/\"([^\"]+)\"/)?.[1] || 'Unknown market',\n          tokenId: sig.tokenId || '',\n          currentPrice: sig.currentPrice || 0\n        },\n        urgent: isUrgent,\n        metadata: {\n          confidence: sig.confidence,\n          direction: sig.direction,\n          source: 'political-scanner'\n        }\n      }\n    }\n  });\n}\n\nif (results.length === 0) {\n  return [];\n}\n\nreturn results;"
+      },
+      "id": "parse-openai",
+      "name": "Parse AI Response & Check Urgency",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 500]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.webhookUrl }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "post-alert",
+      "name": "POST Alert to Bot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2160, 500]
+    },
+    {
+      "parameters": {
+        "content": "## Political Scanner -- THE DIFFERENTIATOR\n\nRuns every 10 minutes. Scans Reddit + RSS for political news, matches against a 50-person watchlist, pre-filters Polymarket markets by keyword, then uses OpenAI to match events to markets.\n\n**Sources:**\n- Reddit: r/politics, r/news, r/worldnews\n- RSS: AP Politics, Reuters World, WhiteHouse.gov, Congress.gov\n\n**Required env vars:**\n- WEBHOOK_URL: The bot's webhook base URL\n- OpenAI API credentials configured in n8n (credential type: openAiApi)\n\n**Alert category:** politics\n**Urgent tier:** confidence > 90% sets urgent=true"
+      },
+      "id": "sticky-note",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [160, 40]
+    }
+  ],
+  "connections": {
+    "Every 10 Minutes": {
+      "main": [
+        [
+          { "node": "Reddit r/politics", "type": "main", "index": 0 },
+          { "node": "Reddit r/news", "type": "main", "index": 0 },
+          { "node": "Reddit r/worldnews", "type": "main", "index": 0 },
+          { "node": "RSS AP Politics", "type": "main", "index": 0 },
+          { "node": "RSS Reuters", "type": "main", "index": 0 },
+          { "node": "RSS WhiteHouse.gov", "type": "main", "index": 0 },
+          { "node": "RSS Congress.gov", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Reddit r/politics": {
+      "main": [
+        [{ "node": "Normalize & Merge Sources", "type": "main", "index": 0 }]
+      ]
+    },
+    "Reddit r/news": {
+      "main": [
+        [{ "node": "Normalize & Merge Sources", "type": "main", "index": 0 }]
+      ]
+    },
+    "Reddit r/worldnews": {
+      "main": [
+        [{ "node": "Normalize & Merge Sources", "type": "main", "index": 0 }]
+      ]
+    },
+    "RSS AP Politics": {
+      "main": [
+        [{ "node": "Normalize & Merge Sources", "type": "main", "index": 0 }]
+      ]
+    },
+    "RSS Reuters": {
+      "main": [
+        [{ "node": "Normalize & Merge Sources", "type": "main", "index": 0 }]
+      ]
+    },
+    "RSS WhiteHouse.gov": {
+      "main": [
+        [{ "node": "Normalize & Merge Sources", "type": "main", "index": 0 }]
+      ]
+    },
+    "RSS Congress.gov": {
+      "main": [
+        [{ "node": "Normalize & Merge Sources", "type": "main", "index": 0 }]
+      ]
+    },
+    "Normalize & Merge Sources": {
+      "main": [
+        [{ "node": "Watchlist Match", "type": "main", "index": 0 }]
+      ]
+    },
+    "Watchlist Match": {
+      "main": [
+        [{ "node": "Get Active Markets", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Active Markets": {
+      "main": [
+        [{ "node": "Pre-filter Markets by Keywords", "type": "main", "index": 0 }]
+      ]
+    },
+    "Pre-filter Markets by Keywords": {
+      "main": [
+        [{ "node": "OpenAI Match Event to Market", "type": "main", "index": 0 }]
+      ]
+    },
+    "OpenAI Match Event to Market": {
+      "main": [
+        [{ "node": "Parse AI Response & Check Urgency", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse AI Response & Check Urgency": {
+      "main": [
+        [{ "node": "POST Alert to Bot", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "tags": [
+    { "name": "capitolbets" },
+    { "name": "signals" },
+    { "name": "politics" }
+  ]
+}

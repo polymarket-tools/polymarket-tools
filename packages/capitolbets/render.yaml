@@ -30,3 +30,29 @@ services:
       name: capitolbets-data
       mountPath: /data
       sizeGB: 1
+
+  - type: web
+    name: capitolbets-n8n
+    runtime: docker
+    dockerfilePath: packages/capitolbets/Dockerfile.n8n
+    dockerContext: .
+    plan: starter
+    region: oregon
+    envVars:
+      - key: WEBHOOK_URL
+        fromService:
+          name: capitolbets-bot
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: N8N_BASIC_AUTH_ACTIVE
+        value: "true"
+      - key: N8N_BASIC_AUTH_USER
+        sync: false
+      - key: N8N_BASIC_AUTH_PASSWORD
+        sync: false
+    disk:
+      name: n8n-data
+      mountPath: /home/node/.n8n
+      sizeGB: 1

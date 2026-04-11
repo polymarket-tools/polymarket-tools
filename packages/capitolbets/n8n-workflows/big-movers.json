@@ -1,0 +1,138 @@
+{
+  "name": "Big Movers",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://gamma-api.polymarket.com/markets",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "active", "value": "true" },
+            { "name": "_limit", "value": "100" },
+            { "name": "_order", "value": "volume" },
+            { "name": "ascending", "value": "false" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-active-markets",
+      "name": "Get Active Markets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract token IDs from markets for price history lookup\nconst marketsRaw = $input.first().json;\nconst markets = Array.isArray(marketsRaw) ? marketsRaw : [marketsRaw];\n\nconst results = [];\nfor (const market of markets) {\n  try {\n    const clobTokenIds = JSON.parse(market.clobTokenIds || '[]');\n    const outcomePrices = JSON.parse(market.outcomePrices || '[]');\n    if (clobTokenIds.length > 0 && clobTokenIds[0]) {\n      results.push({\n        json: {\n          conditionId: market.conditionId,\n          question: market.question,\n          tokenId: clobTokenIds[0],\n          currentPrice: parseFloat(outcomePrices[0]) || 0,\n          volume: market.volume\n        }\n      });\n    }\n  } catch (e) {\n    // Skip markets with malformed data\n  }\n}\n\nreturn results;"
+      },
+      "id": "extract-tokens",
+      "name": "Extract Token IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://clob.polymarket.com/prices-history?market={{ $json.tokenId }}&interval=1h&fidelity=2",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "get-price-history",
+      "name": "Get Price History",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate price movement and filter for >10% moves\nconst WEBHOOK_URL = $env.WEBHOOK_URL || 'http://localhost:3000';\nconst THRESHOLD = 0.10; // 10%\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const history = item.json.history || item.json;\n  const prices = Array.isArray(history) ? history : [];\n\n  if (prices.length < 2) continue;\n\n  // Get the oldest and newest price points\n  const oldPrice = parseFloat(prices[0].p || prices[0].price || '0');\n  const newPrice = parseFloat(prices[prices.length - 1].p || prices[prices.length - 1].price || '0');\n\n  if (oldPrice === 0) continue;\n\n  const change = (newPrice - oldPrice) / oldPrice;\n  const absChange = Math.abs(change);\n\n  if (absChange >= THRESHOLD) {\n    const direction = change > 0 ? 'UP' : 'DOWN';\n    const percentStr = (absChange * 100).toFixed(1);\n    // Carry forward market data\n    const market = item.json._market || {\n      conditionId: item.json.conditionId,\n      question: item.json.question,\n      tokenId: item.json.tokenId,\n      currentPrice: newPrice\n    };\n\n    results.push({\n      json: {\n        webhookUrl: WEBHOOK_URL + '/api/alert',\n        payload: {\n          category: 'movers',\n          title: `\"${market.question}\" moved ${direction} ${percentStr}% in the last hour`,\n          body: `\"${market.question}\" moved ${direction} ${percentStr}% in the last hour ($${oldPrice.toFixed(2)} -> $${newPrice.toFixed(2)}).`,\n          market: {\n            conditionId: market.conditionId || '',\n            question: market.question || 'Unknown market',\n            tokenId: market.tokenId || '',\n            currentPrice: newPrice\n          },\n          urgent: absChange >= 0.20,\n          metadata: {\n            oldPrice: oldPrice,\n            newPrice: newPrice,\n            percentChange: parseFloat(percentStr),\n            direction: direction\n          }\n        }\n      }\n    });\n  }\n}\n\nif (results.length === 0) {\n  return [];\n}\n\nreturn results;"
+      },
+      "id": "calc-movement",
+      "name": "Calculate Movement & Filter >10%",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.webhookUrl }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "post-alert",
+      "name": "POST Alert to Bot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Big Movers\n\nRuns every 15 minutes. Fetches top 100 active markets by volume, compares current price to 1-hour-ago price via CLOB price history, and alerts on any market that moved more than 10% in either direction.\n\n**Required env vars:**\n- WEBHOOK_URL: The bot's webhook base URL\n\n**Alert category:** movers\n**Threshold:** >10% price change in 1 hour\n**Urgent tier:** >20% moves set urgent=true"
+      },
+      "id": "sticky-note",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [160, 100]
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [
+        [{ "node": "Get Active Markets", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Active Markets": {
+      "main": [
+        [{ "node": "Extract Token IDs", "type": "main", "index": 0 }]
+      ]
+    },
+    "Extract Token IDs": {
+      "main": [
+        [{ "node": "Get Price History", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Price History": {
+      "main": [
+        [{ "node": "Calculate Movement & Filter >10%", "type": "main", "index": 0 }]
+      ]
+    },
+    "Calculate Movement & Filter >10%": {
+      "main": [
+        [{ "node": "POST Alert to Bot", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "tags": [
+    { "name": "capitolbets" },
+    { "name": "signals" },
+    { "name": "movers" }
+  ]
+}

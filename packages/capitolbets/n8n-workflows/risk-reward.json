@@ -1,0 +1,105 @@
+{
+  "name": "Risk/Reward Finder",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 2 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://gamma-api.polymarket.com/markets",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "active", "value": "true" },
+            { "name": "_limit", "value": "200" },
+            { "name": "_order", "value": "volume" },
+            { "name": "ascending", "value": "false" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-active-markets",
+      "name": "Get Active Markets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter for low price (<$0.10) + high volume (>$50K) markets\nconst WEBHOOK_URL = $env.WEBHOOK_URL || 'http://localhost:3000';\nconst MAX_PRICE = 0.10;\nconst MIN_VOLUME = 50000;\n\nconst marketsRaw = $input.first().json;\nconst markets = Array.isArray(marketsRaw) ? marketsRaw : [marketsRaw];\n\nconst results = [];\n\nfor (const market of markets) {\n  try {\n    const outcomePrices = JSON.parse(market.outcomePrices || '[0, 0]');\n    const clobTokenIds = JSON.parse(market.clobTokenIds || '[\"\", \"\"]');\n    const yesPrice = parseFloat(outcomePrices[0]) || 0;\n    const volume = parseFloat(market.volume || '0');\n\n    if (yesPrice > 0 && yesPrice < MAX_PRICE && volume > MIN_VOLUME) {\n      const potential = (1 / yesPrice).toFixed(0);\n\n      results.push({\n        json: {\n          webhookUrl: WEBHOOK_URL + '/api/alert',\n          payload: {\n            category: 'risk_reward',\n            title: `Long shot: \"${market.question}\" at $${yesPrice.toFixed(2)} with $${Math.round(volume).toLocaleString()} volume. ${potential}x if it hits.`,\n            body: `Long shot opportunity: \"${market.question}\" is trading at $${yesPrice.toFixed(2)} (YES) with $${Math.round(volume).toLocaleString()} total volume. That's a potential ${potential}x return if it resolves YES.`,\n            market: {\n              conditionId: market.conditionId,\n              question: market.question || 'Unknown market',\n              tokenId: clobTokenIds[0] || '',\n              currentPrice: yesPrice\n            },\n            urgent: false,\n            metadata: {\n              yesPrice: yesPrice,\n              volume: volume,\n              potentialMultiple: parseInt(potential)\n            }\n          }\n        }\n      });\n    }\n  } catch (e) {\n    // Skip markets with malformed outcomePrices\n  }\n}\n\nif (results.length === 0) {\n  return [];\n}\n\n// Sort by potential multiple (highest first), limit to top 5\nresults.sort((a, b) => b.json.payload.metadata.potentialMultiple - a.json.payload.metadata.potentialMultiple);\nreturn results.slice(0, 5);"
+      },
+      "id": "filter-risk-reward",
+      "name": "Filter Low Price + High Volume",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.webhookUrl }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "post-alert",
+      "name": "POST Alert to Bot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Risk/Reward Finder\n\nRuns every 2 hours. Searches for markets trading under $0.10 (long-shot bets) with >$50K volume. These are high risk/reward plays -- cheap to enter, high upside if they resolve YES.\n\nLimits output to top 5 by potential multiple to avoid alert fatigue.\n\n**Required env vars:**\n- WEBHOOK_URL: The bot's webhook base URL\n\n**Alert category:** risk_reward\n**Threshold:** YES price < $0.10, volume > $50K"
+      },
+      "id": "sticky-note",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [160, 100]
+    }
+  ],
+  "connections": {
+    "Every 2 Hours": {
+      "main": [
+        [{ "node": "Get Active Markets", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Active Markets": {
+      "main": [
+        [{ "node": "Filter Low Price + High Volume", "type": "main", "index": 0 }]
+      ]
+    },
+    "Filter Low Price + High Volume": {
+      "main": [
+        [{ "node": "POST Alert to Bot", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "tags": [
+    { "name": "capitolbets" },
+    { "name": "signals" },
+    { "name": "risk_reward" }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "name": "New Markets",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 30 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://gamma-api.polymarket.com/markets",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "active", "value": "true" },
+            { "name": "_limit", "value": "20" },
+            { "name": "_order", "value": "startDate" },
+            { "name": "ascending", "value": "false" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-new-markets",
+      "name": "Get New Markets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter for markets created in the last 2 hours with >$10K volume\nconst TWO_HOURS_MS = 2 * 60 * 60 * 1000;\nconst cutoff = Date.now() - TWO_HOURS_MS;\nconst MIN_VOLUME = 10000;\nconst WEBHOOK_URL = $env.WEBHOOK_URL || 'http://localhost:3000';\n\nconst marketsRaw = $input.first().json;\nconst markets = Array.isArray(marketsRaw) ? marketsRaw : [marketsRaw];\n\n// Use workflow static data for deduplication\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.seenMarkets) {\n  staticData.seenMarkets = {};\n}\n\nconst results = [];\n\nfor (const market of markets) {\n  const startDate = new Date(market.startDate || market.createdAt || 0).getTime();\n  const volume = parseFloat(market.volume || '0');\n\n  // Skip if we've already alerted on this market\n  if (staticData.seenMarkets[market.conditionId]) continue;\n\n  if (startDate > cutoff && volume > MIN_VOLUME) {\n    const hoursOld = ((Date.now() - startDate) / (60 * 60 * 1000)).toFixed(1);\n    const outcomePrices = JSON.parse(market.outcomePrices || '[0, 0]');\n    const clobTokenIds = JSON.parse(market.clobTokenIds || '[\"\", \"\"]');\n    const currentPrice = parseFloat(outcomePrices[0]) || 0;\n\n    // Mark as seen\n    staticData.seenMarkets[market.conditionId] = Date.now();\n\n    results.push({\n      json: {\n        webhookUrl: WEBHOOK_URL + '/api/alert',\n        payload: {\n          category: 'new_markets',\n          title: `New market: \"${market.question}\" -- $${Math.round(volume).toLocaleString()} volume in first ${hoursOld}h`,\n          body: `New market just opened: \"${market.question}\". Already has $${Math.round(volume).toLocaleString()} in volume after ${hoursOld} hours. Current YES price: $${currentPrice.toFixed(2)}.`,\n          market: {\n            conditionId: market.conditionId,\n            question: market.question || 'Unknown market',\n            tokenId: clobTokenIds[0] || '',\n            currentPrice: currentPrice\n          },\n          urgent: false,\n          metadata: {\n            volume: volume,\n            hoursOld: parseFloat(hoursOld),\n            startDate: market.startDate\n          }\n        }\n      }\n    });\n  }\n}\n\n// Clean up old entries from seen markets (older than 24h)\nconst dayAgo = Date.now() - 24 * 60 * 60 * 1000;\nfor (const [id, timestamp] of Object.entries(staticData.seenMarkets)) {\n  if (timestamp < dayAgo) {\n    delete staticData.seenMarkets[id];\n  }\n}\n\nif (results.length === 0) {\n  return [];\n}\n\nreturn results;"
+      },
+      "id": "filter-recent-volume",
+      "name": "Filter Recent + High Volume",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.webhookUrl }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "post-alert",
+      "name": "POST Alert to Bot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 300]
+    },
+    {
+      "parameters": {
+        "content": "## New Markets\n\nRuns every 30 minutes. Queries Gamma API for recently created markets sorted by newest, filters for markets with >$10K volume in their first 2 hours.\n\nUses workflow static data to deduplicate -- won't alert on the same market twice.\n\n**Required env vars:**\n- WEBHOOK_URL: The bot's webhook base URL\n\n**Alert category:** new_markets\n**Threshold:** >$10K volume, created within last 2 hours"
+      },
+      "id": "sticky-note",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [160, 100]
+    }
+  ],
+  "connections": {
+    "Every 30 Minutes": {
+      "main": [
+        [{ "node": "Get New Markets", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get New Markets": {
+      "main": [
+        [{ "node": "Filter Recent + High Volume", "type": "main", "index": 0 }]
+      ]
+    },
+    "Filter Recent + High Volume": {
+      "main": [
+        [{ "node": "POST Alert to Bot", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "tags": [
+    { "name": "capitolbets" },
+    { "name": "signals" },
+    { "name": "new_markets" }
+  ]
+}
