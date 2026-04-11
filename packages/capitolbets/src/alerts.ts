@@ -2,6 +2,7 @@ import { InlineKeyboard } from 'grammy';
 import type { Application, Request, Response } from 'express';
 import type { AlertSentQueries, UserQueries } from './db-queries';
 import type { AlertPayload, AlertPreferences, User } from './types';
+import { buildTradeKeyboard } from './keyboards';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -261,7 +262,10 @@ export class AlertRouter {
     keyboard: InlineKeyboard;
   } {
     const text = this.buildAlertText(payload);
-    const keyboard = buildAlertTradeKeyboard(
+    // For alerts we only have the YES tokenId. NO buttons use the same tokenId
+    // with SELL side as a workaround until AlertPayload includes noTokenId.
+    const keyboard = buildTradeKeyboard(
+      payload.market.tokenId,
       payload.market.tokenId,
       payload.market.conditionId,
     );
@@ -292,31 +296,6 @@ export class AlertRouter {
 // ---------------------------------------------------------------------------
 // Keyboard builder
 // ---------------------------------------------------------------------------
-
-function buildAlertTradeKeyboard(
-  tokenId: string,
-  conditionId: string,
-): InlineKeyboard {
-  const amounts = [25, 50, 100];
-  const kb = new InlineKeyboard();
-
-  for (const amount of amounts) {
-    kb.text(
-      `Buy YES $${amount}`,
-      `trade:BUY:${tokenId}:${conditionId}:${amount}`,
-    );
-  }
-  kb.row();
-
-  for (const amount of amounts) {
-    kb.text(
-      `Buy NO $${amount}`,
-      `trade:SELL:${tokenId}:${conditionId}:${amount}`,
-    );
-  }
-
-  return kb;
-}
 
 // ---------------------------------------------------------------------------
 // Helpers

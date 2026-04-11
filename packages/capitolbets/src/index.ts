@@ -48,6 +48,10 @@ async function main() {
   });
 
   // -- Deposit Monitor ----------------------------------------------------
+  // notifyViaTelegram captures `bot` which is defined below. This is safe because
+  // the callback is only invoked after depositMonitor.start(), which runs after bot creation.
+  let bot: ReturnType<typeof createBot>;
+
   const notifyViaTelegram = async (telegramId: number, message: string) => {
     try {
       await bot.api.sendMessage(telegramId, message);
@@ -63,7 +67,7 @@ async function main() {
   );
 
   // -- Bot ----------------------------------------------------------------
-  const bot = createBot(config, db, {
+  bot = createBot(config, db, {
     walletManager,
     userQueries,
     depositMonitor,
