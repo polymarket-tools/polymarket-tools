@@ -92,7 +92,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Merge market API response with original consensus data from earlier node.\n// The HTTP Request node overwrites item.json with the API response,\n// so we recover consensus data by referencing the prior Code node's output.\nconst consensusItems = $('Find Consensus (3+ Wallets)').all();\nconst results = [];\n\nfor (let i = 0; i < $input.all().length; i++) {\n  const market = $input.all()[i].json;\n  const consensus = consensusItems[i] ? consensusItems[i].json : {};\n  results.push({\n    json: {\n      ...market,\n      _consensus: consensus\n    }\n  });\n}\n\nreturn results;"
+        "jsCode": "// Merge market API response with original consensus data from earlier node.\n// The HTTP Request node overwrites item.json with the API response,\n// so we recover consensus data by referencing the prior Code node's output.\n// Key by conditionId to avoid index misalignment if HTTP requests reorder.\nconst consensusMap = {};\nfor (const c of $('Find Consensus (3+ Wallets)').all()) {\n  consensusMap[c.json.conditionId] = c.json;\n}\nconst items = $input.all();\nreturn items.map(item => {\n  const consensus = consensusMap[item.json.conditionId || item.json.condition_id] || {};\n  return { json: { ...item.json, _consensus: consensus } };\n});"
       },
       "id": "merge-consensus-data",
       "name": "Merge Consensus Data",

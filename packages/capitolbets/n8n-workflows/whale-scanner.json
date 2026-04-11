@@ -80,7 +80,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Merge market API response with original trade data from earlier node.\n// The HTTP Request node overwrites item.json with the API response,\n// so we recover trade data by referencing the prior Code node's output.\nconst tradeItems = $('Filter Recent & Large Trades').all();\nconst results = [];\n\nfor (let i = 0; i < $input.all().length; i++) {\n  const market = $input.all()[i].json;\n  const trade = tradeItems[i] ? tradeItems[i].json : {};\n  results.push({\n    json: {\n      ...market,\n      _trade: trade\n    }\n  });\n}\n\nreturn results;"
+        "jsCode": "// Merge market API response with original trade data from earlier node.\n// The HTTP Request node overwrites item.json with the API response,\n// so we recover trade data by referencing the prior Code node's output.\n// Key by conditionId to avoid index misalignment if HTTP requests reorder.\nconst tradeMap = {};\nfor (const t of $('Filter Recent & Large Trades').all()) {\n  tradeMap[t.json.conditionId || t.json.market] = t.json;\n}\nconst items = $input.all();\nreturn items.map(item => {\n  const trade = tradeMap[item.json.conditionId || item.json.condition_id] || {};\n  return { json: { ...item.json, _trade: trade } };\n});"
       },
       "id": "merge-trade-data",
       "name": "Merge Trade Data",
