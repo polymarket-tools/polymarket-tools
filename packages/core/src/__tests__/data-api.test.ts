@@ -113,6 +113,7 @@ describe('normalizeWalletTrade', () => {
 
     expect(result).toEqual({
       market: '0xbf1471a2a118e4467cb7aec2e3c2f448f2a74d746d6090ff24117c7bb3fecfa6',
+      tokenId: '1223361296250432334047063463948140187131246046550340235272673736367197930139',
       side: 'BUY',
       price: 0.5007103393843725,
       size: 6240.11,

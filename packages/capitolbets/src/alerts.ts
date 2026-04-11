@@ -47,7 +47,7 @@ const VALID_CATEGORIES: Set<string> = new Set([
   'smart_money',
 ]);
 
-const CATEGORY_HEADERS: Record<string, string> = {
+export const CATEGORY_HEADERS: Record<string, string> = {
   whales: 'Whale Move',
   politics: 'Capitol Alert',
   movers: 'Big Mover',
@@ -214,20 +214,21 @@ export class AlertRouter {
   // Message formatting
   // -----------------------------------------------------------------------
 
+  private buildAlertText(payload: AlertPayload): string {
+    const header = CATEGORY_HEADERS[payload.category] ?? payload.category;
+    const priceStr = `$${payload.market.currentPrice.toFixed(2)}`;
+
+    if (payload.urgent) {
+      return `URGENT: ${payload.body}\nCurrent price: ${priceStr}`;
+    }
+    return `${header}\n${payload.body}\nCurrent price: ${priceStr}`;
+  }
+
   formatAlertMessage(payload: AlertPayload): {
     text: string;
     keyboard: InlineKeyboard;
   } {
-    const header = CATEGORY_HEADERS[payload.category] ?? payload.category;
-    const priceStr = `$${payload.market.currentPrice.toFixed(2)}`;
-
-    let text: string;
-    if (payload.urgent) {
-      text = `URGENT: ${payload.body}\nCurrent price: ${priceStr}`;
-    } else {
-      text = `${header}\n${payload.body}\nCurrent price: ${priceStr}`;
-    }
-
+    const text = this.buildAlertText(payload);
     const keyboard = buildAlertTradeKeyboard(
       payload.market.tokenId,
       payload.market.conditionId,
@@ -237,18 +238,7 @@ export class AlertRouter {
   }
 
   formatChannelMessage(payload: AlertPayload): string {
-    const header = CATEGORY_HEADERS[payload.category] ?? payload.category;
-    const priceStr = `$${payload.market.currentPrice.toFixed(2)}`;
-
-    let text: string;
-    if (payload.urgent) {
-      text = `URGENT: ${payload.body}\nCurrent price: ${priceStr}`;
-    } else {
-      text = `${header}\n${payload.body}\nCurrent price: ${priceStr}`;
-    }
-
-    text += '\n\nTrade this on @CapitolBetsBot';
-    return text;
+    return this.buildAlertText(payload) + '\n\nTrade this on @CapitolBetsBot';
   }
 
   // -----------------------------------------------------------------------
@@ -289,7 +279,7 @@ function buildAlertTradeKeyboard(
   for (const amount of amounts) {
     kb.text(
       `Buy NO $${amount}`,
-      `trade:BUY:${tokenId}:${conditionId}:${amount}`,
+      `trade:SELL:${tokenId}:${conditionId}:${amount}`,
     );
   }
 

@@ -185,6 +185,7 @@ export interface WalletPosition {
 
 export interface WalletTrade {
   market: string;
+  tokenId: string;
   side: string;
   price: number;
   size: number;

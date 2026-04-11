@@ -38,6 +38,23 @@ const EDIT_RE = /^copy_edit:(\d+)$/;
 // ---------------------------------------------------------------------------
 
 export function createCopyConfigCallbackHandler(copyConfigQueries: CopyConfigQueries) {
+  /** Verify the config exists and belongs to the current user. */
+  async function verifyOwnership(
+    ctx: BotContext,
+    configId: number,
+  ): Promise<ReturnType<CopyConfigQueries['getById']>> {
+    const config = copyConfigQueries.getById(configId);
+    if (!config) {
+      await ctx.answerCallbackQuery({ text: 'Config not found.' });
+      return undefined;
+    }
+    if (config.user_telegram_id !== ctx.user!.telegram_id) {
+      await ctx.answerCallbackQuery({ text: 'Not your config.' });
+      return undefined;
+    }
+    return config;
+  }
+
   return async function copyConfigCallback(ctx: BotContext): Promise<void> {
     const data = ctx.callbackQuery?.data;
     if (!data || !data.startsWith('copy_')) return;
@@ -55,18 +72,18 @@ export function createCopyConfigCallbackHandler(copyConfigQueries: CopyConfigQue
       const mode = match[2] as 'percent' | 'fixed' | 'mirror';
       const value = parseInt(match[3], 10);
 
+      const config = await verifyOwnership(ctx, configId);
+      if (!config) return;
+
       copyConfigQueries.updateSizing(configId, mode, value);
-      const config = copyConfigQueries.getById(configId);
-      if (config) {
-        const keyboard = buildConfigKeyboard(
-          configId,
-          mode,
-          value,
-          config.direction,
-          config.max_per_trade,
-        );
-        await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
-      }
+      const keyboard = buildConfigKeyboard(
+        configId,
+        mode,
+        value,
+        config.direction,
+        config.max_per_trade,
+      );
+      await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
       await ctx.answerCallbackQuery({ text: `Sizing: ${formatSizing(mode, value)}` });
       return;
     }
@@ -77,18 +94,18 @@ export function createCopyConfigCallbackHandler(copyConfigQueries: CopyConfigQue
       const configId = parseInt(match[1], 10);
       const direction = match[2] as 'all' | 'buys_only' | 'sells_only';
 
+      const config = await verifyOwnership(ctx, configId);
+      if (!config) return;
+
       copyConfigQueries.updateDirection(configId, direction);
-      const config = copyConfigQueries.getById(configId);
-      if (config) {
-        const keyboard = buildConfigKeyboard(
-          configId,
-          config.sizing_mode,
-          config.sizing_value,
-          direction,
-          config.max_per_trade,
-        );
-        await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
-      }
+      const keyboard = buildConfigKeyboard(
+        configId,
+        config.sizing_mode,
+        config.sizing_value,
+        direction,
+        config.max_per_trade,
+      );
+      await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
       await ctx.answerCallbackQuery({ text: `Direction: ${formatDirection(direction)}` });
       return;
     }
@@ -100,18 +117,18 @@ export function createCopyConfigCallbackHandler(copyConfigQueries: CopyConfigQue
       const maxValue = parseInt(match[2], 10);
       const max = maxValue === 0 ? null : maxValue;
 
+      const config = await verifyOwnership(ctx, configId);
+      if (!config) return;
+
       copyConfigQueries.updateMaxPerTrade(configId, max);
-      const config = copyConfigQueries.getById(configId);
-      if (config) {
-        const keyboard = buildConfigKeyboard(
-          configId,
-          config.sizing_mode,
-          config.sizing_value,
-          config.direction,
-          max,
-        );
-        await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
-      }
+      const keyboard = buildConfigKeyboard(
+        configId,
+        config.sizing_mode,
+        config.sizing_value,
+        config.direction,
+        max,
+      );
+      await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
       await ctx.answerCallbackQuery({
         text: max ? `Max: $${max}` : 'Max: No limit',
       });
@@ -122,17 +139,18 @@ export function createCopyConfigCallbackHandler(copyConfigQueries: CopyConfigQue
     match = data.match(START_RE);
     if (match) {
       const configId = parseInt(match[1], 10);
+
+      const config = await verifyOwnership(ctx, configId);
+      if (!config) return;
+
       copyConfigQueries.activate(configId);
-      const config = copyConfigQueries.getById(configId);
-      const walletStr = config ? formatWallet(config.target_wallet) : `config #${configId}`;
+      const walletStr = formatWallet(config.target_wallet);
 
       await ctx.editMessageText(
         `Now copying ${walletStr}.\n` +
-          (config
-            ? `Sizing: ${formatSizing(config.sizing_mode, config.sizing_value)} | ` +
-              `Direction: ${formatDirection(config.direction)} | ` +
-              `Max: ${config.max_per_trade ? `$${config.max_per_trade}` : 'No limit'}`
-            : ''),
+          `Sizing: ${formatSizing(config.sizing_mode, config.sizing_value)} | ` +
+          `Direction: ${formatDirection(config.direction)} | ` +
+          `Max: ${config.max_per_trade ? `$${config.max_per_trade}` : 'No limit'}`,
       );
       await ctx.answerCallbackQuery({ text: 'Copy trading started!' });
       return;
@@ -142,6 +160,10 @@ export function createCopyConfigCallbackHandler(copyConfigQueries: CopyConfigQue
     match = data.match(CANCEL_RE);
     if (match) {
       const configId = parseInt(match[1], 10);
+
+      const config = await verifyOwnership(ctx, configId);
+      if (!config) return;
+
       copyConfigQueries.deactivate(configId);
       await ctx.editMessageText('Copy trading setup cancelled.');
       await ctx.answerCallbackQuery({ text: 'Cancelled' });
@@ -152,9 +174,12 @@ export function createCopyConfigCallbackHandler(copyConfigQueries: CopyConfigQue
     match = data.match(STOP_RE);
     if (match) {
       const configId = parseInt(match[1], 10);
-      const config = copyConfigQueries.getById(configId);
+
+      const config = await verifyOwnership(ctx, configId);
+      if (!config) return;
+
       copyConfigQueries.deactivate(configId);
-      const walletStr = config ? formatWallet(config.target_wallet) : `config #${configId}`;
+      const walletStr = formatWallet(config.target_wallet);
       await ctx.editMessageText(`Stopped copying ${walletStr}.`);
       await ctx.answerCallbackQuery({ text: 'Stopped' });
       return;
@@ -164,11 +189,10 @@ export function createCopyConfigCallbackHandler(copyConfigQueries: CopyConfigQue
     match = data.match(EDIT_RE);
     if (match) {
       const configId = parseInt(match[1], 10);
-      const config = copyConfigQueries.getById(configId);
-      if (!config) {
-        await ctx.answerCallbackQuery({ text: 'Config not found.' });
-        return;
-      }
+
+      const config = await verifyOwnership(ctx, configId);
+      if (!config) return;
+
       const keyboard = buildConfigKeyboard(
         configId,
         config.sizing_mode,

@@ -10,6 +10,7 @@ import type { WalletTrade } from '@polymarket-tools/core';
 function createMockTrade(overrides: Partial<WalletTrade> = {}): WalletTrade {
   return {
     market: '0xcondition123',
+    tokenId: 'token-yes-456',
     side: 'BUY',
     price: 0.65,
     size: 100,

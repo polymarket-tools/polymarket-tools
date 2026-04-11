@@ -43,6 +43,7 @@ export function normalizeWalletPosition(raw: RawWalletPosition): WalletPosition 
 export function normalizeWalletTrade(raw: RawWalletTrade): WalletTrade {
   return {
     market: raw.conditionId,
+    tokenId: raw.asset,
     side: raw.side,
     price: raw.price,
     size: raw.size,

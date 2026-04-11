@@ -3,20 +3,13 @@ import type { BotContext } from '../bot';
 import type { TradingEngine } from '../trading';
 import type { DepositMonitor } from '../deposit-monitor';
 import { USDC_DECIMALS } from '../constants';
+import { CATEGORY_HEADERS } from '../alerts';
 
 // ---------------------------------------------------------------------------
 // Alert header detection for source tracking
 // ---------------------------------------------------------------------------
 
-const ALERT_HEADERS = [
-  'Whale Move',
-  'Capitol Alert',
-  'Big Mover',
-  'New Market',
-  'Risk/Reward Play',
-  'Smart Money Consensus',
-  'URGENT:',
-];
+const ALERT_HEADERS = [...Object.values(CATEGORY_HEADERS), 'URGENT:'];
 
 /**
  * Detect whether the original message came from an alert.

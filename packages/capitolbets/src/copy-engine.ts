@@ -132,23 +132,29 @@ export class CopyEngine {
       return;
     }
 
+    let lastProcessedTrade: WalletTrade | null = null;
+
     for (const trade of newTrades) {
-      // Direction filter
-      if (!this.shouldCopyTrade(trade, config.direction)) continue;
+      // Direction filter (permanent skip -- advance cursor past these)
+      if (!this.shouldCopyTrade(trade, config.direction)) {
+        lastProcessedTrade = trade;
+        continue;
+      }
 
       // Calculate mirror size
       const mirrorSize = this.calculateMirrorSize(trade, config, balance);
       if (mirrorSize === null || mirrorSize <= 0) {
+        lastProcessedTrade = trade;
         continue;
       }
 
-      // Check sufficient balance
+      // Check sufficient balance -- do NOT advance cursor so we can retry
       if (mirrorSize > balance) {
         await this.notify(
           config.user_telegram_id,
           `Copy trade skipped: insufficient balance ($${balance.toFixed(2)} < $${mirrorSize.toFixed(2)} needed).`,
         );
-        continue;
+        break;
       }
 
       // Execute mirror trade
@@ -156,7 +162,7 @@ export class CopyEngine {
         const side = trade.side.toUpperCase() as 'BUY' | 'SELL';
         const result = await this.tradingEngine.executeTrade({
           user,
-          tokenId: trade.transactionHash, // token derived from the trade data
+          tokenId: trade.tokenId,
           conditionId: trade.market,
           side,
           amount: mirrorSize,
@@ -165,6 +171,7 @@ export class CopyEngine {
 
         if (result.success) {
           balance -= mirrorSize; // Update local balance tracker
+          lastProcessedTrade = trade;
           const walletShort = `${config.target_wallet.slice(0, 6)}...${config.target_wallet.slice(-4)}`;
           await this.notify(
             config.user_telegram_id,
@@ -175,6 +182,7 @@ export class CopyEngine {
             config.user_telegram_id,
             `Copy trade failed: ${result.error ?? 'Unknown error'}`,
           );
+          lastProcessedTrade = trade;
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -186,15 +194,17 @@ export class CopyEngine {
           config.user_telegram_id,
           `Copy trade error: ${msg}`,
         );
+        lastProcessedTrade = trade;
       }
     }
 
-    // Update last_seen_trade_id to the most recent trade's transactionHash
-    const latestTrade = newTrades[newTrades.length - 1];
-    this.copyConfigQueries.updateLastSeenTrade(
-      config.id,
-      latestTrade.transactionHash,
-    );
+    // Only advance cursor past trades that were actually processed
+    if (lastProcessedTrade) {
+      this.copyConfigQueries.updateLastSeenTrade(
+        config.id,
+        lastProcessedTrade.transactionHash,
+      );
+    }
   }
 
   // -----------------------------------------------------------------------
