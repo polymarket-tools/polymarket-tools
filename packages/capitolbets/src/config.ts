@@ -10,6 +10,7 @@ export interface AppConfig {
   transakApiKey?: string;
   openaiApiKey?: string;
   adminTelegramId?: string;
+  signalChannelId?: string;
 }
 
 export function loadConfig(): AppConfig {
@@ -44,5 +45,6 @@ export function loadConfig(): AppConfig {
     transakApiKey: process.env.TRANSAK_API_KEY || undefined,
     openaiApiKey: process.env.OPENAI_API_KEY || undefined,
     adminTelegramId: process.env.ADMIN_TELEGRAM_ID || undefined,
+    signalChannelId: process.env.SIGNAL_CHANNEL_ID || undefined,
   };
 }

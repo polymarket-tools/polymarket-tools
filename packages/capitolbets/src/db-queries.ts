@@ -169,6 +169,13 @@ export class UserQueries {
       .all() as UserRow[];
     return rows.map(mapUser);
   }
+
+  listAll(): User[] {
+    const rows = this.db.raw
+      .prepare('SELECT * FROM users')
+      .all() as UserRow[];
+    return rows.map(mapUser);
+  }
 }
 
 // ---------- TradeQueries ----------
