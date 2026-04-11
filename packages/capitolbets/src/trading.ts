@@ -31,6 +31,8 @@ export interface ExecuteTradeParams {
   amount: number;
   /** Price per share (0-1 range) */
   price: number;
+  /** Trade source for attribution. Defaults to 'manual'. */
+  source?: 'manual' | 'copy' | 'signal';
 }
 
 /**
@@ -109,7 +111,7 @@ export class TradingEngine {
    * 5. Record the trade in the database
    */
   async executeTrade(params: ExecuteTradeParams): Promise<TradeResult> {
-    const { user, tokenId, conditionId, side, amount, price } = params;
+    const { user, tokenId, conditionId, side, amount, price, source = 'manual' } = params;
 
     // 1. Calculate fee
     const feeAmount = this.calculateFee(amount, user.fee_rate);
@@ -194,7 +196,7 @@ export class TradingEngine {
         price,
         size,
         fee_amount: feeAmount,
-        source: 'manual',
+        source,
         tx_hash: txHash ?? orderId,
       });
     } catch (dbError) {

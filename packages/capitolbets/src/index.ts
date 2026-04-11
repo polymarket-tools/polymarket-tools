@@ -48,8 +48,9 @@ async function main() {
     });
   });
 
-  // Webhook endpoint will be added in Task 2.3
-  // app.post(`/bot${config.telegramBotToken}`, webhookCallback(bot, 'express'));
+  // Alert webhook endpoint (POST /api/alert)
+  // Will be fully wired when Database is initialized (Task 1.2 TODO above).
+  // When db is ready, create AlertRouter and call alertRouter.registerRoutes(app).
 
   const server = app.listen(config.port, () => {
     logger.info({ port: config.port }, 'HTTP server listening');

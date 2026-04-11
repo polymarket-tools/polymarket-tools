@@ -5,6 +5,38 @@ import type { DepositMonitor } from '../deposit-monitor';
 import { USDC_DECIMALS } from '../constants';
 
 // ---------------------------------------------------------------------------
+// Alert header detection for source tracking
+// ---------------------------------------------------------------------------
+
+const ALERT_HEADERS = [
+  'Whale Move',
+  'Capitol Alert',
+  'Big Mover',
+  'New Market',
+  'Risk/Reward Play',
+  'Smart Money Consensus',
+  'URGENT:',
+];
+
+/**
+ * Detect whether the original message came from an alert.
+ * If so, the trade source should be 'signal' instead of 'manual'.
+ */
+function detectTradeSource(ctx: BotContext): 'manual' | 'signal' {
+  // Try to read the text of the message the callback button is on
+  const messageText =
+    (ctx.callbackQuery?.message as any)?.text ?? '';
+  if (!messageText) return 'manual';
+
+  for (const header of ALERT_HEADERS) {
+    if (messageText.startsWith(header)) {
+      return 'signal';
+    }
+  }
+  return 'manual';
+}
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
@@ -130,6 +162,9 @@ export function createTradeCallbackHandler(deps: TradeCallbackDeps) {
       return;
     }
 
+    // -- Detect source (signal vs manual) ------------------------------------
+    const source = detectTradeSource(ctx);
+
     // -- Execute trade ------------------------------------------------------
     await editOrReply(ctx, `Placing ${side} order for $${amount.toFixed(2)}...`);
 
@@ -141,6 +176,7 @@ export function createTradeCallbackHandler(deps: TradeCallbackDeps) {
         side,
         amount,
         price: currentPrice,
+        source,
       });
 
       if (result.success) {
