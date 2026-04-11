@@ -36,6 +36,11 @@ export class SmartCopyScorer {
   /** Cache market conditionId -> category to avoid redundant Gamma lookups */
   private marketCategoryCache = new Map<string, string>();
 
+  /** Max entries in the market category cache */
+  private static readonly MARKET_CACHE_MAX = 5000;
+  /** Number of entries to evict when the cache is full */
+  private static readonly MARKET_CACHE_EVICT = 1000;
+
   /** Cache wallet -> category stats (refreshed per poll cycle) */
   private walletStatsCache = new Map<string, { stats: CategoryStats[]; fetchedAt: number }>();
 
@@ -185,13 +190,30 @@ export class SmartCopyScorer {
     try {
       const market: Market = await this.gamma.getMarket(conditionId);
       const category = market.tags?.[0] ?? 'Unknown';
-      this.marketCategoryCache.set(conditionId, category);
+      this.setMarketCategoryCache(conditionId, category);
       return category;
     } catch {
       const fallback = 'Unknown';
-      this.marketCategoryCache.set(conditionId, fallback);
+      this.setMarketCategoryCache(conditionId, fallback);
       return fallback;
     }
+  }
+
+  /**
+   * Insert into market category cache with size cap.
+   * When the cache exceeds MARKET_CACHE_MAX, evict the oldest MARKET_CACHE_EVICT entries.
+   */
+  private setMarketCategoryCache(conditionId: string, category: string): void {
+    if (this.marketCategoryCache.size >= SmartCopyScorer.MARKET_CACHE_MAX) {
+      // Map iterates in insertion order -- delete the oldest entries
+      let evicted = 0;
+      for (const key of this.marketCategoryCache.keys()) {
+        if (evicted >= SmartCopyScorer.MARKET_CACHE_EVICT) break;
+        this.marketCategoryCache.delete(key);
+        evicted++;
+      }
+    }
+    this.marketCategoryCache.set(conditionId, category);
   }
 
   /**

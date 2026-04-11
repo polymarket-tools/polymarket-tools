@@ -3,6 +3,7 @@ import type { BotContext } from '../bot';
 import { requireUser } from '../guards';
 import type { LeaderboardService } from '../leaderboard';
 import type { UserQueries } from '../db-queries';
+import { formatUsd } from '../format';
 
 // ---------------------------------------------------------------------------
 // /leaderboard — show top 10 traders
@@ -13,7 +14,7 @@ export function createLeaderboardCommand(deps: {
   userQueries: UserQueries;
 }) {
   return async function leaderboardCommand(ctx: BotContext): Promise<void> {
-    if (!requireUser(ctx)) return;
+    if (!(await requireUser(ctx))) return;
 
     const top = deps.leaderboardService.getTop('7d', 10);
 
@@ -28,7 +29,7 @@ export function createLeaderboardCommand(deps: {
 
     for (let i = 0; i < top.length; i++) {
       const entry = top[i];
-      const pnlStr = entry.pnl >= 0 ? `+$${entry.pnl.toFixed(0)}` : `-$${Math.abs(entry.pnl).toFixed(0)}`;
+      const pnlStr = formatUsd(entry.pnl);
       const winStr = `${Math.round(entry.win_rate * 100)}%`;
 
       const user = deps.userQueries.getByTelegramId(entry.user_telegram_id);

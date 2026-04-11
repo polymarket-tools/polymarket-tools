@@ -24,6 +24,8 @@ export interface AlertRouterDeps {
   sendMessage: AlertSendFn;
   postToChannel?: ChannelPostFn;
   signalChannelId?: string;
+  /** Raw better-sqlite3 db for transaction support. When provided, dedup check + insert runs atomically. */
+  rawDb?: { prepare(sql: string): { run(...args: unknown[]): void }; transaction<T>(fn: () => T): () => T } | null;
 }
 
 export interface ProcessAlertResult {
@@ -118,6 +120,7 @@ export class AlertRouter {
   private sendMessage: AlertSendFn;
   private postToChannel?: ChannelPostFn;
   private signalChannelId?: string;
+  private rawDb?: AlertRouterDeps['rawDb'];
 
   constructor(deps: AlertRouterDeps) {
     this.alertSentQueries = deps.alertSentQueries;
@@ -125,6 +128,7 @@ export class AlertRouter {
     this.sendMessage = deps.sendMessage;
     this.postToChannel = deps.postToChannel;
     this.signalChannelId = deps.signalChannelId;
+    this.rawDb = deps.rawDb;
   }
 
   // -----------------------------------------------------------------------
@@ -154,23 +158,12 @@ export class AlertRouter {
   // -----------------------------------------------------------------------
 
   async processAlert(payload: AlertPayload): Promise<ProcessAlertResult> {
-    // Deduplication check
-    const isDuplicate = this.alertSentQueries.existsRecent(
-      payload.category,
-      payload.market.conditionId,
-      DEDUP_WINDOW_MINUTES,
-    );
-
+    // Atomic deduplication: check + insert inside a transaction to prevent
+    // duplicate webhooks from both passing the check.
+    const isDuplicate = this.dedupCheckAndInsert(payload);
     if (isDuplicate) {
       return { delivered: 0, skipped: 0, deduplicated: true };
     }
-
-    // Record in alerts_sent
-    this.alertSentQueries.insert({
-      category: payload.category,
-      title: payload.title,
-      market_condition_id: payload.market.conditionId,
-    });
 
     // Get subscribed users
     const subscribedUsers = this.getSubscribedUsers(payload.category);
@@ -181,6 +174,7 @@ export class AlertRouter {
     const { text, keyboard } = this.formatAlertMessage(payload);
     const isUrgent = payload.urgent === true;
 
+    // Sequential send with 35ms delay to stay under Telegram's 30 msgs/sec limit
     for (const user of subscribedUsers) {
       try {
         await this.sendMessage(user.telegram_id, text, {
@@ -195,6 +189,10 @@ export class AlertRouter {
         );
         skipped++;
       }
+      // Rate limit: ~30 msgs/sec = 33ms per message, use 35ms for safety
+      if (subscribedUsers.length > 1) {
+        await sleep(35);
+      }
     }
 
     // Channel broadcast
@@ -208,6 +206,40 @@ export class AlertRouter {
     }
 
     return { delivered, skipped, deduplicated: false };
+  }
+
+  // -----------------------------------------------------------------------
+  // Atomic deduplication
+  // -----------------------------------------------------------------------
+
+  /**
+   * Check for duplicates and insert the alert record atomically.
+   * When rawDb is available, uses a BEGIN IMMEDIATE transaction to prevent
+   * race conditions between concurrent webhook calls.
+   * Returns true if the alert is a duplicate (should be skipped).
+   */
+  private dedupCheckAndInsert(payload: AlertPayload): boolean {
+    const check = () => {
+      const isDuplicate = this.alertSentQueries.existsRecent(
+        payload.category,
+        payload.market.conditionId,
+        DEDUP_WINDOW_MINUTES,
+      );
+      if (isDuplicate) return true;
+      this.alertSentQueries.insert({
+        category: payload.category,
+        title: payload.title,
+        market_condition_id: payload.market.conditionId,
+      });
+      return false;
+    };
+
+    if (this.rawDb) {
+      // Wrap in an IMMEDIATE transaction for atomicity
+      const txn = this.rawDb.transaction(check);
+      return txn();
+    }
+    return check();
   }
 
   // -----------------------------------------------------------------------
@@ -284,4 +316,12 @@ function buildAlertTradeKeyboard(
   }
 
   return kb;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -10,7 +10,7 @@ const PROMO_FEE_RATE = 0.0025; // 0.25% (half the normal 0.5%)
 const PROMO_DURATION_DAYS = 30;
 
 export async function switchCommand(ctx: BotContext): Promise<void> {
-  if (!requireUser(ctx)) return;
+  if (!(await requireUser(ctx))) return;
 
   const text = ctx.message?.text ?? '';
   const competitor = text.replace(/^\/switch\s*/, '').trim().toLowerCase();

@@ -1,6 +1,7 @@
 import type { DataApiClient, WalletPosition, WalletTrade } from '@polymarket-tools/core';
 import type { UserQueries, TradeQueries, CopyConfigQueries } from './db-queries';
 import type { User, Trade } from './types';
+import { formatUsd, formatWallet } from './format';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -155,8 +156,8 @@ export class DigestScheduler {
     const lines: string[] = ['Good morning. Your CapitolBets portfolio:', ''];
 
     // P&L summary
-    lines.push(`Yesterday: ${this.formatPnl(yesterdayPnl)}`);
-    lines.push(`This week: ${this.formatPnl(weekPnl)}`);
+    lines.push(`Yesterday: ${formatUsd(yesterdayPnl)}`);
+    lines.push(`This week: ${formatUsd(weekPnl)}`);
     lines.push(`Open positions: ${positions.length}`);
 
     // Best/worst trade
@@ -165,12 +166,12 @@ export class DigestScheduler {
       lines.push('');
       if (best) {
         lines.push(
-          `Best trade: "${best.market_condition_id.slice(0, 20)}..." ${this.formatPnl(best.price * best.size)} (${best.side})`,
+          `Best trade: "${best.market_condition_id.slice(0, 20)}..." ${formatUsd(best.price * best.size)} (${best.side})`,
         );
       }
       if (worst) {
         lines.push(
-          `Worst trade: "${worst.market_condition_id.slice(0, 20)}..." ${this.formatPnl(-worst.price * worst.size)} (${worst.side})`,
+          `Worst trade: "${worst.market_condition_id.slice(0, 20)}..." ${formatUsd(-worst.price * worst.size)} (${worst.side})`,
         );
       }
     }
@@ -180,8 +181,8 @@ export class DigestScheduler {
       lines.push('');
       lines.push('Whales you\'re copying:');
       for (const whale of copiedWalletData) {
-        const walletShort = `${whale.wallet.slice(0, 6)}...${whale.wallet.slice(-4)}`;
-        lines.push(`  ${walletShort}: ${this.formatPnl(whale.pnl)} yesterday`);
+        const walletShort = formatWallet(whale.wallet);
+        lines.push(`  ${walletShort}: ${formatUsd(whale.pnl)} yesterday`);
       }
     }
 
@@ -230,11 +231,6 @@ export class DigestScheduler {
       }
     }
     return Math.round(pnl * 100) / 100;
-  }
-
-  private formatPnl(amount: number): string {
-    if (amount >= 0) return `+$${amount.toFixed(2)}`;
-    return `-$${Math.abs(amount).toFixed(2)}`;
   }
 
   private findBestWorst(trades: Trade[]): {

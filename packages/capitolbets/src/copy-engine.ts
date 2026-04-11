@@ -3,6 +3,7 @@ import type { TradingEngine } from './trading';
 import type { CopyConfigQueries, UserQueries } from './db-queries';
 import type { CopyConfig, User } from './types';
 import type { SmartCopyScorer } from './smart-copy';
+import { formatWallet } from './format';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,6 +43,7 @@ export class CopyEngine {
   private smartCopyScorer: SmartCopyScorer | null;
 
   private intervalId: ReturnType<typeof setInterval> | null = null;
+  private polling = false;
   private pollIntervalMs: number;
 
   constructor(deps: CopyEngineDeps, pollIntervalMs?: number) {
@@ -62,9 +64,15 @@ export class CopyEngine {
   start(): void {
     if (this.intervalId) return;
     this.intervalId = setInterval(() => {
-      this.poll().catch((err) => {
-        console.error('[CopyEngine] Poll error:', err);
-      });
+      if (this.polling) return;
+      this.polling = true;
+      this.poll()
+        .catch((err) => {
+          console.error('[CopyEngine] Poll error:', err);
+        })
+        .finally(() => {
+          this.polling = false;
+        });
     }, this.pollIntervalMs);
     console.log(
       `[CopyEngine] Started. Polling every ${this.pollIntervalMs / 1000}s.`,
@@ -218,7 +226,7 @@ export class CopyEngine {
         if (result.success) {
           balance -= mirrorSize; // Update local balance tracker
           lastProcessedTrade = trade;
-          const walletShort = `${config.target_wallet.slice(0, 6)}...${config.target_wallet.slice(-4)}`;
+          const walletShort = formatWallet(config.target_wallet);
           await this.notify(
             config.user_telegram_id,
             `Copied: ${walletShort} ${side.toLowerCase()} at $${trade.price.toFixed(2)}. Your position: $${mirrorSize.toFixed(2)}`,

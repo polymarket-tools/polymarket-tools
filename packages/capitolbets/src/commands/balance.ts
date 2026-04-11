@@ -3,7 +3,7 @@ import type { BotContext } from '../bot';
 import { requireUser } from '../guards';
 
 export async function balanceCommand(ctx: BotContext): Promise<void> {
-  if (!requireUser(ctx)) return;
+  if (!(await requireUser(ctx))) return;
 
   const depositMonitor = ctx.depositMonitor;
   if (!depositMonitor) {

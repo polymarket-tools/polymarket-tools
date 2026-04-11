@@ -7,7 +7,7 @@ import { requireUser } from '../guards';
 // ---------------------------------------------------------------------------
 
 export async function digestCommand(ctx: BotContext): Promise<void> {
-  if (!requireUser(ctx)) return;
+  if (!(await requireUser(ctx))) return;
 
   const userQueries = ctx.userQueries;
   if (!userQueries) {

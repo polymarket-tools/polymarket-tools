@@ -38,7 +38,7 @@ function formatTrade(trade: Trade): string {
 }
 
 export async function historyCommand(ctx: BotContext): Promise<void> {
-  if (!requireUser(ctx)) return;
+  if (!(await requireUser(ctx))) return;
 
   if (!ctx.tradeQueries) {
     await ctx.reply('Trade history is temporarily unavailable. Please try again later.');

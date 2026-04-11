@@ -1,7 +1,7 @@
 import type { BotContext } from '../bot';
 import type { UserQueries } from '../db-queries';
 import type { AlertPreferences } from '../types';
-import { buildAlertToggleKeyboard, CATEGORY_LABELS } from '../commands/alerts';
+import { buildAlertToggleKeyboard, CATEGORY_LABELS } from '../keyboards';
 
 // ---------------------------------------------------------------------------
 // Callback data pattern: alert_toggle:{category}

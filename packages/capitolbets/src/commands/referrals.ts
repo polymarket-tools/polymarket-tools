@@ -8,7 +8,7 @@ import type { ReferralService } from '../referrals';
 
 export function createReferralsCommand(referralService: ReferralService) {
   return async function referralsCommand(ctx: BotContext): Promise<void> {
-    if (!requireUser(ctx)) return;
+    if (!(await requireUser(ctx))) return;
 
     const stats = referralService.getReferralStats(ctx.user.telegram_id);
 

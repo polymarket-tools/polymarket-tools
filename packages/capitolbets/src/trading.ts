@@ -141,39 +141,22 @@ export class TradingEngine {
       };
     }
 
-    // 3-4. Place order on CLOB
+    // 3-4. Place order on CLOB (with one retry on auth failure)
     let orderId: string;
     let txHash: string | undefined;
     try {
-      const clobClient = await this.getClobClientForUser(user);
-
-      // Calculate size in shares: amount_usdc / price_per_share
-      const size = orderAmount / price;
-
-      const userOrder = {
-        tokenID: tokenId,
-        side: side as any,
-        price,
-        size,
-      };
-
-      const signedOrder = await clobClient.createOrder(userOrder, undefined);
-      const response = await clobClient.postOrder(signedOrder, 'FOK' as any);
-
-      orderId = response.orderID ?? '';
-      const status = String(response.status ?? 'unknown');
-
-      if (!orderId) {
+      const result = await this.placeOrderWithRetry(user, tokenId, side, price, orderAmount);
+      orderId = result.orderId;
+      txHash = result.txHash;
+      if (result.error) {
         return {
           success: false,
           price,
-          size,
+          size: orderAmount / price,
           feeAmount,
-          error: `Order rejected by CLOB (status: ${status}). Fee was charged.`,
+          error: result.error,
         };
       }
-
-      txHash = response.transactionsHashes?.[0] ?? undefined;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       return {
@@ -230,6 +213,69 @@ export class TradingEngine {
    */
   async getCurrentPrice(tokenId: string): Promise<number> {
     return this.publicClient.getPrice(tokenId, 'buy');
+  }
+
+  // -----------------------------------------------------------------------
+  // Private: Order placement with auth retry
+  // -----------------------------------------------------------------------
+
+  /**
+   * Place an order on the CLOB. If a 401/403 error occurs, invalidate the
+   * cached credential and retry once with fresh credentials.
+   */
+  private async placeOrderWithRetry(
+    user: User,
+    tokenId: string,
+    side: 'BUY' | 'SELL',
+    price: number,
+    orderAmount: number,
+    isRetry = false,
+  ): Promise<{ orderId: string; txHash?: string; error?: string }> {
+    try {
+      const clobClient = await this.getClobClientForUser(user);
+      const size = orderAmount / price;
+
+      const userOrder = {
+        tokenID: tokenId,
+        side: side as any,
+        price,
+        size,
+      };
+
+      const signedOrder = await clobClient.createOrder(userOrder, undefined);
+      const response = await clobClient.postOrder(signedOrder, 'FOK' as any);
+
+      const orderId = response.orderID ?? '';
+      const status = String(response.status ?? 'unknown');
+
+      if (!orderId) {
+        return {
+          orderId: '',
+          error: `Order rejected by CLOB (status: ${status}). Fee was charged.`,
+        };
+      }
+
+      const txHash = response.transactionsHashes?.[0] ?? undefined;
+      return { orderId, txHash };
+    } catch (error) {
+      if (!isRetry && this.isAuthError(error)) {
+        // Invalidate cached credentials and retry once
+        this.credentialCache.delete(user.telegram_id);
+        return this.placeOrderWithRetry(user, tokenId, side, price, orderAmount, true);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Check if an error is a 401/403 authentication failure from the CLOB.
+   */
+  private isAuthError(error: unknown): boolean {
+    if (error instanceof Error) {
+      const msg = error.message;
+      return msg.includes('401') || msg.includes('403') || msg.includes('Unauthorized') || msg.includes('Forbidden');
+    }
+    return false;
   }
 
   // -----------------------------------------------------------------------

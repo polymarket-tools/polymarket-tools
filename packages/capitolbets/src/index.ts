@@ -1,7 +1,13 @@
 import express from 'express';
 import pino from 'pino';
+import { DataApiClient } from '@polymarket-tools/core';
 import { loadConfig } from './config';
+import { Database } from './db';
+import { UserQueries, TradeQueries, CopyConfigQueries, AlertSentQueries } from './db-queries';
 import { createBot } from './bot';
+import { AlertRouter } from './alerts';
+import { DepositMonitor } from './deposit-monitor';
+import { WalletManager } from './wallet';
 
 const VERSION = '1.0.0';
 const startTime = Date.now();
@@ -24,11 +30,46 @@ async function main() {
   );
 
   // -- Database -----------------------------------------------------------
-  // TODO: initialize Database and run migrations once db.ts lands (Task 1.2)
-  const db = null;
+  const db = new Database(config.databasePath);
+  db.migrate();
+  logger.info('Database initialized and migrated');
+
+  // -- Query objects ------------------------------------------------------
+  const userQueries = new UserQueries(db);
+  const tradeQueries = new TradeQueries(db);
+  const copyConfigQueries = new CopyConfigQueries(db);
+  const alertSentQueries = new AlertSentQueries(db);
+
+  // -- Wallet Manager -----------------------------------------------------
+  const walletManager = new WalletManager({
+    privyAppId: config.privyAppId,
+    privyAppSecret: config.privyAppSecret,
+    polygonRpcUrl: config.polygonRpcUrl,
+  });
+
+  // -- Deposit Monitor ----------------------------------------------------
+  const notifyViaTelegram = async (telegramId: number, message: string) => {
+    try {
+      await bot.api.sendMessage(telegramId, message);
+    } catch (err) {
+      logger.error({ err, telegramId }, 'Failed to send Telegram notification');
+    }
+  };
+
+  const depositMonitor = new DepositMonitor(
+    notifyViaTelegram,
+    db,
+    config.polygonRpcUrl,
+  );
 
   // -- Bot ----------------------------------------------------------------
-  const bot = createBot(config, db);
+  const bot = createBot(config, db, {
+    walletManager,
+    userQueries,
+    depositMonitor,
+    tradeQueries,
+    copyConfigQueries,
+  });
 
   // -- Express (webhook endpoint + health) --------------------------------
   const app = express();
@@ -48,18 +89,41 @@ async function main() {
     });
   });
 
-  // Alert webhook endpoint (POST /api/alert)
-  // Will be fully wired when Database is initialized (Task 1.2 TODO above).
-  // When db is ready, create AlertRouter and call alertRouter.registerRoutes(app).
+  // -- Alert Router -------------------------------------------------------
+  const alertRouter = new AlertRouter({
+    alertSentQueries,
+    userQueries,
+    sendMessage: async (telegramId, text, options) => {
+      await bot.api.sendMessage(telegramId, text, {
+        reply_markup: options?.reply_markup,
+        disable_notification: options?.disable_notification,
+      });
+    },
+    postToChannel: config.signalChannelId
+      ? async (channelId, text) => {
+          await bot.api.sendMessage(channelId, text);
+        }
+      : undefined,
+    signalChannelId: config.signalChannelId,
+    rawDb: db.raw,
+  });
+  alertRouter.registerRoutes(app);
+
+  // -- Deposit Monitor start ----------------------------------------------
+  depositMonitor.start().catch((err) => {
+    logger.error({ err }, 'DepositMonitor failed to start');
+  });
 
   // Transak fiat on-ramp webhook (POST /api/transak/webhook)
-  // When db + Transak are configured, create TransakWebhookHandler and call
-  // transakHandler.registerRoutes(app). Requires TRANSAK_WEBHOOK_SECRET env var.
+  // TODO: When Transak is configured (TRANSAK_WEBHOOK_SECRET env var),
+  // create TransakWebhookHandler and call transakHandler.registerRoutes(app).
 
   // Daily P&L digest scheduler
-  // When db is ready, create DigestScheduler and call digestScheduler.start().
+  // TODO: When digest scheduling env vars are confirmed, create DigestScheduler
+  // and call digestScheduler.start(). Requires DataApiClient to be configured.
   // import { DigestScheduler } from './digest';
-  // const digestScheduler = new DigestScheduler({ userQueries, tradeQueries, copyConfigQueries, dataApi, notify });
+  // const dataApi = new DataApiClient();
+  // const digestScheduler = new DigestScheduler({ userQueries, tradeQueries, copyConfigQueries, dataApi, notify: notifyViaTelegram });
   // digestScheduler.start();
 
   const server = app.listen(config.port, () => {
@@ -103,8 +167,10 @@ async function main() {
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutting down...');
     bot.stop();
+    depositMonitor.stop();
     server.close(() => {
       logger.info('HTTP server closed');
+      db.close();
       process.exit(0);
     });
     // Force exit after 10s if graceful shutdown hangs

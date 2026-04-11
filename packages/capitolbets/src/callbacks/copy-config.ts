@@ -1,6 +1,8 @@
 import type { BotContext } from '../bot';
 import type { CopyConfigQueries } from '../db-queries';
-import { buildConfigKeyboard, formatWallet, formatSizing, formatDirection } from '../commands/copy';
+import { formatWallet } from '../format';
+import { buildConfigKeyboard } from '../keyboards';
+import { formatSizing, formatDirection } from '../commands/copy';
 
 // ---------------------------------------------------------------------------
 // Callback data patterns

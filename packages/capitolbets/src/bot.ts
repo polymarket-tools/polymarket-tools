@@ -1,6 +1,7 @@
 import { Bot, Context } from 'grammy';
 import type { AppConfig } from './config';
 import type { User } from './types';
+import type { Database } from './db';
 import type { WalletManager } from './wallet';
 import type { DepositMonitor } from './deposit-monitor';
 import type { UserQueries, TradeQueries, CopyConfigQueries } from './db-queries';
@@ -25,8 +26,7 @@ import { requireUser } from './guards';
 export interface BotContext extends Context {
   user: User | null;
   config: AppConfig;
-  // db will be typed properly once db.ts lands (Task 1.2)
-  db: unknown;
+  db: Database | null;
   walletManager: WalletManager | null;
   userQueries: UserQueries | null;
   depositMonitor: DepositMonitor | null;
@@ -97,7 +97,7 @@ export interface BotDependencies {
 
 export function createBot(
   config: AppConfig,
-  db: unknown,
+  db: Database | null,
   deps: BotDependencies = {}
 ): Bot<BotContext> {
   const bot = new Bot<BotContext>(config.telegramBotToken);
@@ -166,7 +166,7 @@ export function createBot(
 
   // -- Callback queries --------------------------------------------------
   bot.callbackQuery('deposit:manual', async (ctx) => {
-    if (!requireUser(ctx)) {
+    if (!(await requireUser(ctx))) {
       await ctx.answerCallbackQuery();
       return;
     }

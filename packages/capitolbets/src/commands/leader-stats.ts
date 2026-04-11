@@ -8,7 +8,7 @@ import type { LeaderboardService } from '../leaderboard';
 
 export function createLeaderStatsCommand(leaderboardService: LeaderboardService) {
   return async function leaderStatsCommand(ctx: BotContext): Promise<void> {
-    if (!requireUser(ctx)) return;
+    if (!(await requireUser(ctx))) return;
 
     const stats = leaderboardService.getLeaderStats(ctx.user.telegram_id);
 

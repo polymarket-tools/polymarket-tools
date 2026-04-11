@@ -4,7 +4,7 @@ import { generateTransakUrl } from '../transak';
 import { requireUser } from '../guards';
 
 export async function depositCommand(ctx: BotContext): Promise<void> {
-  if (!requireUser(ctx)) return;
+  if (!(await requireUser(ctx))) return;
 
   const safeAddress = ctx.user.safe_address;
   const transakApiKey = ctx.config.transakApiKey;

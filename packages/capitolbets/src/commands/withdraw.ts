@@ -8,7 +8,7 @@ import { USDC_DECIMALS } from '../constants';
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
 export async function withdrawCommand(ctx: BotContext): Promise<void> {
-  if (!requireUser(ctx)) return;
+  if (!(await requireUser(ctx))) return;
 
   const text = ctx.message?.text ?? '';
   const parts = text.replace(/^\/withdraw\s*/, '').trim().split(/\s+/);
