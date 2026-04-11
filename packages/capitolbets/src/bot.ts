@@ -3,6 +3,7 @@ import type { AppConfig } from './config';
 import type { User } from './types';
 import { startCommand } from './commands/start';
 import { helpCommand } from './commands/help';
+import { searchCommand } from './commands/search';
 
 // ---------------------------------------------------------------------------
 // Context
@@ -117,6 +118,7 @@ export function createBot(config: AppConfig, db: unknown): Bot<BotContext> {
   // -- Commands -----------------------------------------------------------
   bot.command('start', startCommand);
   bot.command('help', helpCommand);
+  bot.command('search', searchCommand);
 
   return bot;
 }
