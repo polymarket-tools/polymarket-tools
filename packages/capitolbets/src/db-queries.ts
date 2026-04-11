@@ -349,6 +349,31 @@ export class CopyConfigQueries {
       .prepare('UPDATE copy_configs SET max_per_trade = ? WHERE id = ?')
       .run(max, configId);
   }
+
+  updateSmartCopyEnabled(configId: number, enabled: boolean): void {
+    this.db.raw
+      .prepare('UPDATE copy_configs SET smart_copy_enabled = ? WHERE id = ?')
+      .run(enabled ? 1 : 0, configId);
+  }
+
+  updateSmartCopyMinConfidence(configId: number, confidence: number): void {
+    this.db.raw
+      .prepare(
+        'UPDATE copy_configs SET smart_copy_min_confidence = ? WHERE id = ?',
+      )
+      .run(confidence, configId);
+  }
+
+  updateSmartCopyCategories(
+    configId: number,
+    categories: string[] | null,
+  ): void {
+    this.db.raw
+      .prepare(
+        'UPDATE copy_configs SET smart_copy_categories = ? WHERE id = ?',
+      )
+      .run(categories ? JSON.stringify(categories) : null, configId);
+  }
 }
 
 // ---------- AlertSentQueries ----------

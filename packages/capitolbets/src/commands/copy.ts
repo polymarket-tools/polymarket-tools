@@ -155,6 +155,9 @@ export function buildConfigKeyboard(
   currentValue: number,
   currentDirection: string,
   currentMax: number | null,
+  smartCopyEnabled: boolean = false,
+  smartCopyMinConfidence: number = 0.7,
+  smartCopyCategories: string[] | null = null,
 ): InlineKeyboard {
   const kb = new InlineKeyboard();
 
@@ -204,7 +207,49 @@ export function buildConfigKeyboard(
   }
   kb.row();
 
-  // Row 4: Start / Cancel
+  // Row 4: Smart Copy toggle
+  kb.text(
+    smartCopyEnabled ? '[ON]' : 'ON',
+    `smart_copy_toggle:${configId}`,
+  );
+  kb.text(
+    !smartCopyEnabled ? '[OFF]' : 'OFF',
+    `smart_copy_toggle:${configId}`,
+  );
+  kb.row();
+
+  // Row 5: Min confidence (only shown if smart copy enabled)
+  if (smartCopyEnabled) {
+    const confOptions = [60, 70, 80, 90];
+    for (const pct of confOptions) {
+      const selected = Math.round(smartCopyMinConfidence * 100) === pct;
+      kb.text(
+        selected ? `[${pct}%]` : `${pct}%`,
+        `smart_conf:${configId}:${pct}`,
+      );
+    }
+    kb.row();
+
+    // Row 6: Category filter
+    const catOptions = [
+      { label: 'All', value: 'all' },
+      { label: 'Politics', value: 'politics' },
+      { label: 'Crypto', value: 'crypto' },
+      { label: 'Sports', value: 'sports' },
+    ];
+    for (const opt of catOptions) {
+      const isAll = opt.value === 'all' && !smartCopyCategories;
+      const isSelected =
+        isAll || (smartCopyCategories?.includes(opt.value) ?? false);
+      kb.text(
+        isSelected ? `[${opt.label}]` : opt.label,
+        `smart_cat:${configId}:${opt.value}`,
+      );
+    }
+    kb.row();
+  }
+
+  // Row 7: Start / Cancel
   kb.text('Start copying', `copy_start:${configId}`);
   kb.text('Cancel', `copy_cancel:${configId}`);
 

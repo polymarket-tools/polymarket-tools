@@ -20,6 +20,15 @@ import { buildConfigKeyboard, formatWallet, formatSizing, formatDirection } from
 // copy_cancel:{configId}
 // copy_stop:{configId}
 // copy_edit:{configId}
+// smart_copy_toggle:{configId}
+// smart_conf:{configId}:60
+// smart_conf:{configId}:70
+// smart_conf:{configId}:80
+// smart_conf:{configId}:90
+// smart_cat:{configId}:all
+// smart_cat:{configId}:politics
+// smart_cat:{configId}:crypto
+// smart_cat:{configId}:sports
 
 // ---------------------------------------------------------------------------
 // Regex patterns
@@ -32,6 +41,9 @@ const START_RE = /^copy_start:(\d+)$/;
 const CANCEL_RE = /^copy_cancel:(\d+)$/;
 const STOP_RE = /^copy_stop:(\d+)$/;
 const EDIT_RE = /^copy_edit:(\d+)$/;
+const SMART_TOGGLE_RE = /^smart_copy_toggle:(\d+)$/;
+const SMART_CONF_RE = /^smart_conf:(\d+):(\d+)$/;
+const SMART_CAT_RE = /^smart_cat:(\d+):(all|politics|crypto|sports)$/;
 
 // ---------------------------------------------------------------------------
 // Handler
@@ -57,7 +69,7 @@ export function createCopyConfigCallbackHandler(copyConfigQueries: CopyConfigQue
 
   return async function copyConfigCallback(ctx: BotContext): Promise<void> {
     const data = ctx.callbackQuery?.data;
-    if (!data || !data.startsWith('copy_')) return;
+    if (!data || !(data.startsWith('copy_') || data.startsWith('smart_'))) return;
 
     // All copy callbacks require a user
     if (!ctx.user) {
@@ -82,6 +94,9 @@ export function createCopyConfigCallbackHandler(copyConfigQueries: CopyConfigQue
         value,
         config.direction,
         config.max_per_trade,
+        config.smart_copy_enabled,
+        config.smart_copy_min_confidence,
+        config.smart_copy_categories,
       );
       await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
       await ctx.answerCallbackQuery({ text: `Sizing: ${formatSizing(mode, value)}` });
@@ -104,6 +119,9 @@ export function createCopyConfigCallbackHandler(copyConfigQueries: CopyConfigQue
         config.sizing_value,
         direction,
         config.max_per_trade,
+        config.smart_copy_enabled,
+        config.smart_copy_min_confidence,
+        config.smart_copy_categories,
       );
       await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
       await ctx.answerCallbackQuery({ text: `Direction: ${formatDirection(direction)}` });
@@ -127,6 +145,9 @@ export function createCopyConfigCallbackHandler(copyConfigQueries: CopyConfigQue
         config.sizing_value,
         config.direction,
         max,
+        config.smart_copy_enabled,
+        config.smart_copy_min_confidence,
+        config.smart_copy_categories,
       );
       await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
       await ctx.answerCallbackQuery({
@@ -199,12 +220,99 @@ export function createCopyConfigCallbackHandler(copyConfigQueries: CopyConfigQue
         config.sizing_value,
         config.direction,
         config.max_per_trade,
+        config.smart_copy_enabled,
+        config.smart_copy_min_confidence,
+        config.smart_copy_categories,
       );
       await ctx.editMessageText(
         `Edit copy config: ${formatWallet(config.target_wallet)}`,
         { reply_markup: keyboard },
       );
       await ctx.answerCallbackQuery();
+      return;
+    }
+
+    // -- Smart Copy Toggle ---------------------------------------------------
+    match = data.match(SMART_TOGGLE_RE);
+    if (match) {
+      const configId = parseInt(match[1], 10);
+
+      const config = await verifyOwnership(ctx, configId);
+      if (!config) return;
+
+      const newEnabled = !config.smart_copy_enabled;
+      copyConfigQueries.updateSmartCopyEnabled(configId, newEnabled);
+
+      const keyboard = buildConfigKeyboard(
+        configId,
+        config.sizing_mode,
+        config.sizing_value,
+        config.direction,
+        config.max_per_trade,
+        newEnabled,
+        config.smart_copy_min_confidence,
+        config.smart_copy_categories,
+      );
+      await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
+      await ctx.answerCallbackQuery({
+        text: `Smart Copy: ${newEnabled ? 'ON' : 'OFF'}`,
+      });
+      return;
+    }
+
+    // -- Smart Copy Min Confidence -------------------------------------------
+    match = data.match(SMART_CONF_RE);
+    if (match) {
+      const configId = parseInt(match[1], 10);
+      const confidencePct = parseInt(match[2], 10);
+      const confidence = confidencePct / 100; // store as 0-1
+
+      const config = await verifyOwnership(ctx, configId);
+      if (!config) return;
+
+      copyConfigQueries.updateSmartCopyMinConfidence(configId, confidence);
+
+      const keyboard = buildConfigKeyboard(
+        configId,
+        config.sizing_mode,
+        config.sizing_value,
+        config.direction,
+        config.max_per_trade,
+        config.smart_copy_enabled,
+        confidence,
+        config.smart_copy_categories,
+      );
+      await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
+      await ctx.answerCallbackQuery({ text: `Min confidence: ${confidencePct}%` });
+      return;
+    }
+
+    // -- Smart Copy Categories -----------------------------------------------
+    match = data.match(SMART_CAT_RE);
+    if (match) {
+      const configId = parseInt(match[1], 10);
+      const catValue = match[2]; // 'all', 'politics', 'crypto', 'sports'
+
+      const config = await verifyOwnership(ctx, configId);
+      if (!config) return;
+
+      const categories = catValue === 'all' ? null : [catValue];
+      copyConfigQueries.updateSmartCopyCategories(configId, categories);
+
+      const keyboard = buildConfigKeyboard(
+        configId,
+        config.sizing_mode,
+        config.sizing_value,
+        config.direction,
+        config.max_per_trade,
+        config.smart_copy_enabled,
+        config.smart_copy_min_confidence,
+        categories,
+      );
+      await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
+      await ctx.answerCallbackQuery({
+        text: `Categories: ${catValue === 'all' ? 'All' : catValue.charAt(0).toUpperCase() + catValue.slice(1)}`,
+      });
       return;
     }
   };
