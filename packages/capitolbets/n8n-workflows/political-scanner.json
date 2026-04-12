@@ -16,7 +16,10 @@
       "name": "Every 10 Minutes",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [200, 500]
+      "position": [
+        200,
+        500
+      ]
     },
     {
       "parameters": {
@@ -33,7 +36,10 @@
       "name": "Reddit r/politics",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [440, 200]
+      "position": [
+        440,
+        200
+      ]
     },
     {
       "parameters": {
@@ -50,7 +56,10 @@
       "name": "Reddit r/news",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [440, 400]
+      "position": [
+        440,
+        400
+      ]
     },
     {
       "parameters": {
@@ -67,7 +76,10 @@
       "name": "Reddit r/worldnews",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [440, 600]
+      "position": [
+        440,
+        600
+      ]
     },
     {
       "parameters": {
@@ -84,7 +96,10 @@
       "name": "RSS AP Politics",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [440, 800]
+      "position": [
+        440,
+        800
+      ]
     },
     {
       "parameters": {
@@ -101,7 +116,10 @@
       "name": "RSS Reuters",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [440, 1000]
+      "position": [
+        440,
+        1000
+      ]
     },
     {
       "parameters": {
@@ -118,7 +136,10 @@
       "name": "RSS WhiteHouse.gov",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [440, 1200]
+      "position": [
+        440,
+        1200
+      ]
     },
     {
       "parameters": {
@@ -135,7 +156,10 @@
       "name": "RSS Congress.gov",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [440, 1400]
+      "position": [
+        440,
+        1400
+      ]
     },
     {
       "parameters": {
@@ -145,7 +169,10 @@
       "name": "Normalize & Merge Sources",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [720, 500]
+      "position": [
+        720,
+        500
+      ]
     },
     {
       "parameters": {
@@ -155,7 +182,10 @@
       "name": "Watchlist Match",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [960, 500]
+      "position": [
+        960,
+        500
+      ]
     },
     {
       "parameters": {
@@ -163,10 +193,22 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "active", "value": "true" },
-            { "name": "_limit", "value": "50" },
-            { "name": "_order", "value": "volume" },
-            { "name": "ascending", "value": "false" }
+            {
+              "name": "active",
+              "value": "true"
+            },
+            {
+              "name": "_limit",
+              "value": "50"
+            },
+            {
+              "name": "_order",
+              "value": "volume"
+            },
+            {
+              "name": "ascending",
+              "value": "false"
+            }
           ]
         },
         "options": {}
@@ -175,7 +217,10 @@
       "name": "Get Active Markets",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1200, 500]
+      "position": [
+        1200,
+        500
+      ]
     },
     {
       "parameters": {
@@ -185,7 +230,10 @@
       "name": "Pre-filter Markets by Keywords",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1440, 500]
+      "position": [
+        1440,
+        500
+      ]
     },
     {
       "parameters": {
@@ -204,7 +252,10 @@
       "name": "OpenAI Match Event to Market",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1680, 500]
+      "position": [
+        1680,
+        500
+      ]
     },
     {
       "parameters": {
@@ -214,7 +265,10 @@
       "name": "Parse AI Response & Check Urgency",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1920, 500]
+      "position": [
+        1920,
+        500
+      ]
     },
     {
       "parameters": {
@@ -225,13 +279,25 @@
         "jsonBody": "={{ JSON.stringify($json.payload) }}",
         "options": {
           "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WEBHOOK_SECRET }}"
+            }
+          ]
         }
       },
       "id": "post-alert",
       "name": "POST Alert to Bot",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2160, 500]
+      "position": [
+        2160,
+        500
+      ]
     },
     {
       "parameters": {
@@ -241,86 +307,195 @@
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [160, 40]
+      "position": [
+        160,
+        40
+      ]
     }
   ],
   "connections": {
     "Every 10 Minutes": {
       "main": [
         [
-          { "node": "Reddit r/politics", "type": "main", "index": 0 },
-          { "node": "Reddit r/news", "type": "main", "index": 0 },
-          { "node": "Reddit r/worldnews", "type": "main", "index": 0 },
-          { "node": "RSS AP Politics", "type": "main", "index": 0 },
-          { "node": "RSS Reuters", "type": "main", "index": 0 },
-          { "node": "RSS WhiteHouse.gov", "type": "main", "index": 0 },
-          { "node": "RSS Congress.gov", "type": "main", "index": 0 }
+          {
+            "node": "Reddit r/politics",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Reddit r/news",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Reddit r/worldnews",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS AP Politics",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS Reuters",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS WhiteHouse.gov",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS Congress.gov",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Reddit r/politics": {
       "main": [
-        [{ "node": "Normalize & Merge Sources", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Normalize & Merge Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Reddit r/news": {
       "main": [
-        [{ "node": "Normalize & Merge Sources", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Normalize & Merge Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Reddit r/worldnews": {
       "main": [
-        [{ "node": "Normalize & Merge Sources", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Normalize & Merge Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "RSS AP Politics": {
       "main": [
-        [{ "node": "Normalize & Merge Sources", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Normalize & Merge Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "RSS Reuters": {
       "main": [
-        [{ "node": "Normalize & Merge Sources", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Normalize & Merge Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "RSS WhiteHouse.gov": {
       "main": [
-        [{ "node": "Normalize & Merge Sources", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Normalize & Merge Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "RSS Congress.gov": {
       "main": [
-        [{ "node": "Normalize & Merge Sources", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Normalize & Merge Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Normalize & Merge Sources": {
       "main": [
-        [{ "node": "Watchlist Match", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Watchlist Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Watchlist Match": {
       "main": [
-        [{ "node": "Get Active Markets", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Get Active Markets",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Get Active Markets": {
       "main": [
-        [{ "node": "Pre-filter Markets by Keywords", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Pre-filter Markets by Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Pre-filter Markets by Keywords": {
       "main": [
-        [{ "node": "OpenAI Match Event to Market", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "OpenAI Match Event to Market",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "OpenAI Match Event to Market": {
       "main": [
-        [{ "node": "Parse AI Response & Check Urgency", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Parse AI Response & Check Urgency",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Parse AI Response & Check Urgency": {
       "main": [
-        [{ "node": "POST Alert to Bot", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "POST Alert to Bot",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
@@ -329,8 +504,14 @@
   },
   "active": false,
   "tags": [
-    { "name": "capitolbets" },
-    { "name": "signals" },
-    { "name": "politics" }
+    {
+      "name": "capitolbets"
+    },
+    {
+      "name": "signals"
+    },
+    {
+      "name": "politics"
+    }
   ]
 }

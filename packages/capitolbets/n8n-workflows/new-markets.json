@@ -16,7 +16,10 @@
       "name": "Every 30 Minutes",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [200, 300]
+      "position": [
+        200,
+        300
+      ]
     },
     {
       "parameters": {
@@ -24,10 +27,22 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "active", "value": "true" },
-            { "name": "_limit", "value": "20" },
-            { "name": "_order", "value": "startDate" },
-            { "name": "ascending", "value": "false" }
+            {
+              "name": "active",
+              "value": "true"
+            },
+            {
+              "name": "_limit",
+              "value": "20"
+            },
+            {
+              "name": "_order",
+              "value": "startDate"
+            },
+            {
+              "name": "ascending",
+              "value": "false"
+            }
           ]
         },
         "options": {}
@@ -36,7 +51,10 @@
       "name": "Get New Markets",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [420, 300]
+      "position": [
+        420,
+        300
+      ]
     },
     {
       "parameters": {
@@ -46,7 +64,10 @@
       "name": "Filter Recent + High Volume",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [640, 300]
+      "position": [
+        640,
+        300
+      ]
     },
     {
       "parameters": {
@@ -57,13 +78,25 @@
         "jsonBody": "={{ JSON.stringify($json.payload) }}",
         "options": {
           "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WEBHOOK_SECRET }}"
+            }
+          ]
         }
       },
       "id": "post-alert",
       "name": "POST Alert to Bot",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [860, 300]
+      "position": [
+        860,
+        300
+      ]
     },
     {
       "parameters": {
@@ -73,23 +106,44 @@
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [160, 100]
+      "position": [
+        160,
+        100
+      ]
     }
   ],
   "connections": {
     "Every 30 Minutes": {
       "main": [
-        [{ "node": "Get New Markets", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Get New Markets",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Get New Markets": {
       "main": [
-        [{ "node": "Filter Recent + High Volume", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Filter Recent + High Volume",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Filter Recent + High Volume": {
       "main": [
-        [{ "node": "POST Alert to Bot", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "POST Alert to Bot",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
@@ -98,8 +152,14 @@
   },
   "active": false,
   "tags": [
-    { "name": "capitolbets" },
-    { "name": "signals" },
-    { "name": "new_markets" }
+    {
+      "name": "capitolbets"
+    },
+    {
+      "name": "signals"
+    },
+    {
+      "name": "new_markets"
+    }
   ]
 }

@@ -24,6 +24,8 @@ services:
         value: /data/capitolbets.db
       - key: PORT
         value: "3000"
+      - key: WEBHOOK_SECRET
+        sync: false
       - key: NODE_ENV
         value: production
     disk:
@@ -44,6 +46,11 @@ services:
           name: capitolbets-bot
           type: web
           envVarKey: RENDER_EXTERNAL_URL
+      - key: WEBHOOK_SECRET
+        fromService:
+          name: capitolbets-bot
+          type: web
+          envVarKey: WEBHOOK_SECRET
       - key: OPENAI_API_KEY
         sync: false
       - key: N8N_BASIC_AUTH_ACTIVE

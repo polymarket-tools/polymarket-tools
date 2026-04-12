@@ -11,6 +11,8 @@ export interface AppConfig {
   openaiApiKey?: string;
   adminTelegramId?: string;
   signalChannelId?: string;
+  /** Shared secret for authenticating webhook requests from n8n */
+  webhookSecret: string;
 }
 
 export function loadConfig(): AppConfig {
@@ -19,6 +21,7 @@ export function loadConfig(): AppConfig {
     PRIVY_APP_ID: process.env.PRIVY_APP_ID,
     PRIVY_APP_SECRET: process.env.PRIVY_APP_SECRET,
     FEE_COLLECTION_ADDRESS: process.env.FEE_COLLECTION_ADDRESS,
+    WEBHOOK_SECRET: process.env.WEBHOOK_SECRET,
   };
 
   const missing = Object.entries(required)
@@ -46,5 +49,6 @@ export function loadConfig(): AppConfig {
     openaiApiKey: process.env.OPENAI_API_KEY || undefined,
     adminTelegramId: process.env.ADMIN_TELEGRAM_ID || undefined,
     signalChannelId: process.env.SIGNAL_CHANNEL_ID || undefined,
+    webhookSecret: required.WEBHOOK_SECRET!,
   };
 }

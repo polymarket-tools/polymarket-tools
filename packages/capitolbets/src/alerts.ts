@@ -25,6 +25,8 @@ export interface AlertRouterDeps {
   sendMessage: AlertSendFn;
   postToChannel?: ChannelPostFn;
   signalChannelId?: string;
+  /** Shared secret for authenticating webhook requests. n8n sends this as Bearer token. */
+  webhookSecret: string;
   /** Raw better-sqlite3 db for transaction support. When provided, dedup check + insert runs atomically. */
   rawDb?: { prepare(sql: string): { run(...args: unknown[]): void }; transaction<T>(fn: () => T): () => T } | null;
 }
@@ -138,6 +140,13 @@ export class AlertRouter {
 
   registerRoutes(app: Application): void {
     app.post('/api/alert', async (req: Request, res: Response) => {
+      // Authenticate: n8n must send the shared secret in the Authorization header
+      const authHeader = req.headers.authorization;
+      if (!authHeader || authHeader !== `Bearer ${this.deps.webhookSecret}`) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
       const validation = validateAlertPayload(req.body);
       if (!validation.valid) {
         res.status(400).json({ error: validation.error });

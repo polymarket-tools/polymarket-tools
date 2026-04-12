@@ -16,7 +16,10 @@
       "name": "Daily 9am ET",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [200, 300]
+      "position": [
+        200,
+        300
+      ]
     },
     {
       "parameters": {
@@ -24,8 +27,14 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "timePeriod", "value": "all" },
-            { "name": "limit", "value": "10" }
+            {
+              "name": "timePeriod",
+              "value": "all"
+            },
+            {
+              "name": "limit",
+              "value": "10"
+            }
           ]
         },
         "options": {}
@@ -34,7 +43,10 @@
       "name": "Get Leaderboard Top 10",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [420, 300]
+      "position": [
+        420,
+        300
+      ]
     },
     {
       "parameters": {
@@ -44,7 +56,10 @@
       "name": "Split Into Wallets",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [640, 300]
+      "position": [
+        640,
+        300
+      ]
     },
     {
       "parameters": {
@@ -57,7 +72,10 @@
       "name": "Get Wallet Positions",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [860, 300]
+      "position": [
+        860,
+        300
+      ]
     },
     {
       "parameters": {
@@ -67,7 +85,10 @@
       "name": "Collect All Positions",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1080, 300]
+      "position": [
+        1080,
+        300
+      ]
     },
     {
       "parameters": {
@@ -77,7 +98,10 @@
       "name": "Find Consensus (3+ Wallets)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1300, 300]
+      "position": [
+        1300,
+        300
+      ]
     },
     {
       "parameters": {
@@ -88,7 +112,10 @@
       "name": "Get Market Details",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1520, 300]
+      "position": [
+        1520,
+        300
+      ]
     },
     {
       "parameters": {
@@ -98,7 +125,10 @@
       "name": "Merge Consensus Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1630, 300]
+      "position": [
+        1630,
+        300
+      ]
     },
     {
       "parameters": {
@@ -108,7 +138,10 @@
       "name": "Format Alert Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1840, 300]
+      "position": [
+        1840,
+        300
+      ]
     },
     {
       "parameters": {
@@ -119,13 +152,25 @@
         "jsonBody": "={{ JSON.stringify($json.payload) }}",
         "options": {
           "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WEBHOOK_SECRET }}"
+            }
+          ]
         }
       },
       "id": "post-alert",
       "name": "POST Alert to Bot",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2060, 300]
+      "position": [
+        2060,
+        300
+      ]
     },
     {
       "parameters": {
@@ -135,53 +180,110 @@
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [160, 100]
+      "position": [
+        160,
+        100
+      ]
     }
   ],
   "connections": {
     "Daily 9am ET": {
       "main": [
-        [{ "node": "Get Leaderboard Top 10", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Get Leaderboard Top 10",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Get Leaderboard Top 10": {
       "main": [
-        [{ "node": "Split Into Wallets", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Split Into Wallets",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Split Into Wallets": {
       "main": [
-        [{ "node": "Get Wallet Positions", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Get Wallet Positions",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Get Wallet Positions": {
       "main": [
-        [{ "node": "Collect All Positions", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Collect All Positions",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Collect All Positions": {
       "main": [
-        [{ "node": "Find Consensus (3+ Wallets)", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Find Consensus (3+ Wallets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Find Consensus (3+ Wallets)": {
       "main": [
-        [{ "node": "Get Market Details", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Get Market Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Get Market Details": {
       "main": [
-        [{ "node": "Merge Consensus Data", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Merge Consensus Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Merge Consensus Data": {
       "main": [
-        [{ "node": "Format Alert Payload", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Format Alert Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Format Alert Payload": {
       "main": [
-        [{ "node": "POST Alert to Bot", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "POST Alert to Bot",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
@@ -190,8 +292,14 @@
   },
   "active": false,
   "tags": [
-    { "name": "capitolbets" },
-    { "name": "signals" },
-    { "name": "smart_money" }
+    {
+      "name": "capitolbets"
+    },
+    {
+      "name": "signals"
+    },
+    {
+      "name": "smart_money"
+    }
   ]
 }

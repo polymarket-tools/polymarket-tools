@@ -16,7 +16,10 @@
       "name": "Every 5 Minutes",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [200, 300]
+      "position": [
+        200,
+        300
+      ]
     },
     {
       "parameters": {
@@ -24,8 +27,14 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "timePeriod", "value": "all" },
-            { "name": "limit", "value": "10" }
+            {
+              "name": "timePeriod",
+              "value": "all"
+            },
+            {
+              "name": "limit",
+              "value": "10"
+            }
           ]
         },
         "options": {}
@@ -34,7 +43,10 @@
       "name": "Get Leaderboard Top 10",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [420, 300]
+      "position": [
+        420,
+        300
+      ]
     },
     {
       "parameters": {
@@ -44,7 +56,10 @@
       "name": "Split Leaderboard Entries",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [640, 300]
+      "position": [
+        640,
+        300
+      ]
     },
     {
       "parameters": {
@@ -55,7 +70,10 @@
       "name": "Get Wallet Trades",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [860, 300]
+      "position": [
+        860,
+        300
+      ]
     },
     {
       "parameters": {
@@ -65,7 +83,10 @@
       "name": "Filter Recent & Large Trades",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1080, 300]
+      "position": [
+        1080,
+        300
+      ]
     },
     {
       "parameters": {
@@ -76,7 +97,10 @@
       "name": "Get Market Details",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1300, 300]
+      "position": [
+        1300,
+        300
+      ]
     },
     {
       "parameters": {
@@ -86,7 +110,10 @@
       "name": "Merge Trade Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1410, 300]
+      "position": [
+        1410,
+        300
+      ]
     },
     {
       "parameters": {
@@ -96,7 +123,10 @@
       "name": "Format Alert Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1620, 300]
+      "position": [
+        1620,
+        300
+      ]
     },
     {
       "parameters": {
@@ -107,13 +137,25 @@
         "jsonBody": "={{ JSON.stringify($json.payload) }}",
         "options": {
           "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WEBHOOK_SECRET }}"
+            }
+          ]
         }
       },
       "id": "post-alert",
       "name": "POST Alert to Bot",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1840, 300]
+      "position": [
+        1840,
+        300
+      ]
     },
     {
       "parameters": {
@@ -123,48 +165,99 @@
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [160, 100]
+      "position": [
+        160,
+        100
+      ]
     }
   ],
   "connections": {
     "Every 5 Minutes": {
       "main": [
-        [{ "node": "Get Leaderboard Top 10", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Get Leaderboard Top 10",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Get Leaderboard Top 10": {
       "main": [
-        [{ "node": "Split Leaderboard Entries", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Split Leaderboard Entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Split Leaderboard Entries": {
       "main": [
-        [{ "node": "Get Wallet Trades", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Get Wallet Trades",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Get Wallet Trades": {
       "main": [
-        [{ "node": "Filter Recent & Large Trades", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Filter Recent & Large Trades",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Filter Recent & Large Trades": {
       "main": [
-        [{ "node": "Get Market Details", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Get Market Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Get Market Details": {
       "main": [
-        [{ "node": "Merge Trade Data", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Merge Trade Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Merge Trade Data": {
       "main": [
-        [{ "node": "Format Alert Payload", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Format Alert Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Format Alert Payload": {
       "main": [
-        [{ "node": "POST Alert to Bot", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "POST Alert to Bot",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
@@ -173,8 +266,14 @@
   },
   "active": false,
   "tags": [
-    { "name": "capitolbets" },
-    { "name": "signals" },
-    { "name": "whales" }
+    {
+      "name": "capitolbets"
+    },
+    {
+      "name": "signals"
+    },
+    {
+      "name": "whales"
+    }
   ]
 }
